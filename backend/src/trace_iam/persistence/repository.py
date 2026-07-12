@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, cast
 
-from sqlalchemy import Engine, Select, func, select
+from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session
 
 from trace_iam.domain import EvidenceFact, Investigation
@@ -17,6 +17,8 @@ from .serialization import (
     loads,
 )
 
+JsonObject = dict[str, Any]
+
 
 @dataclass(frozen=True, slots=True)
 class StoredAnalysisRun:
@@ -24,8 +26,8 @@ class StoredAnalysisRun:
     created_at: datetime
     ruleset_version: str
     facts: tuple[EvidenceFact, ...]
-    findings: list[dict[str, Any]]
-    report_json: dict[str, Any]
+    findings: list[JsonObject]
+    report_json: JsonObject
     report_markdown: str
 
 
@@ -66,8 +68,8 @@ class InvestigationRepository:
         *,
         ruleset_version: str,
         facts: tuple[EvidenceFact, ...],
-        findings: list[dict[str, Any]],
-        report_json: dict[str, Any],
+        findings: list[JsonObject],
+        report_json: JsonObject,
         report_markdown: str,
     ) -> StoredAnalysisRun:
         if not ruleset_version.strip():
@@ -75,7 +77,7 @@ class InvestigationRepository:
         with Session(self._engine) as session:
             if session.get(InvestigationRecord, investigation_id) is None:
                 raise KeyError(f"Investigation {investigation_id!r} does not exist")
-            query: Select[tuple[int | None]] = select(func.max(AnalysisRunRecord.run_number)).where(
+            query = select(func.max(AnalysisRunRecord.run_number)).where(
                 AnalysisRunRecord.investigation_id == investigation_id
             )
             next_number = (session.scalar(query) or 0) + 1
@@ -115,8 +117,8 @@ class InvestigationRepository:
                     created_at=record.created_at,
                     ruleset_version=record.ruleset_version,
                     facts=facts_from_json(record.facts_json),
-                    findings=loads(record.findings_json),
-                    report_json=loads(record.report_json),
+                    findings=cast(list[JsonObject], loads(record.findings_json)),
+                    report_json=cast(JsonObject, loads(record.report_json)),
                     report_markdown=record.report_markdown,
                 )
                 for record in records
