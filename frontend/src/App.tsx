@@ -1,20 +1,64 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
 const SAMPLE_CSV = `Sign-in ID,Conditional Access Status,Failure Reason,Conditional Access Policy
 signin-001,failure,Device is not compliant,Require compliant device`;
 
 type AnalysisResponse = {
+  investigation_id: string;
+  run_number: number;
   finding_count: number;
   evaluated_rule_ids: string[];
   markdown_report: string;
   json_report: Record<string, unknown>;
 };
 
+type InvestigationSummary = {
+  investigation_id: string;
+  title: string;
+  scenario_type: string;
+  status: string;
+  created_at: string;
+  archived_at: string | null;
+  analysis_run_count: number;
+};
+
+type AnalysisRun = {
+  run_number: number;
+  created_at: string;
+  ruleset_version: string;
+  finding_count: number;
+};
+
+async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(path, init);
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload.detail ?? "Request failed");
+  }
+  return payload as T;
+}
+
 export function App() {
   const [csvText, setCsvText] = useState(SAMPLE_CSV);
   const [result, setResult] = useState<AnalysisResponse | null>(null);
+  const [investigations, setInvestigations] = useState<InvestigationSummary[]>([]);
+  const [runs, setRuns] = useState<AnalysisRun[]>([]);
+  const [selectedId, setSelectedId] = useState("");
+  const [includeArchived, setIncludeArchived] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  async function refreshHistory(showArchived = includeArchived) {
+    const query = showArchived ? "?include_archived=true" : "";
+    const items = await api<InvestigationSummary[]>(`/api/investigations${query}`);
+    setInvestigations(items);
+  }
+
+  useEffect(() => {
+    refreshHistory().catch((caught) => {
+      setError(caught instanceof Error ? caught.message : "History failed to load");
+    });
+  }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -23,25 +67,63 @@ export function App() {
     setResult(null);
 
     try {
-      const response = await fetch("/api/investigations/analyze-conditional-access-csv", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          investigation_id: "browser-ca-001",
-          title: "Conditional Access sign-in review",
-          source: "public-safe browser sample",
-          csv_text: csvText
-        })
-      });
-      const payload = await response.json();
-      if (!response.ok) {
-        throw new Error(payload.detail ?? "Analysis failed");
-      }
-      setResult(payload as AnalysisResponse);
+      const payload = await api<AnalysisResponse>(
+        "/api/investigations/analyze-conditional-access-csv",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            investigation_id: "browser-ca-001",
+            title: "Conditional Access sign-in review",
+            source: "public-safe browser sample",
+            csv_text: csvText
+          })
+        }
+      );
+      setResult(payload);
+      setSelectedId(payload.investigation_id);
+      await refreshHistory();
+      setRuns(await api<AnalysisRun[]>(`/api/investigations/${payload.investigation_id}/runs`));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Analysis failed");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadHistory(investigationId: string) {
+    setError("");
+    setSelectedId(investigationId);
+    try {
+      setRuns(await api<AnalysisRun[]>(`/api/investigations/${investigationId}/runs`));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "History failed to load");
+    }
+  }
+
+  async function changeArchiveState(investigationId: string, action: "archive" | "reopen") {
+    setError("");
+    try {
+      await api(`/api/investigations/${investigationId}/${action}`, { method: "POST" });
+      await refreshHistory();
+      if (!includeArchived && action === "archive") {
+        setSelectedId("");
+        setRuns([]);
+      }
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "History update failed");
+    }
+  }
+
+  async function toggleArchived() {
+    const next = !includeArchived;
+    setIncludeArchived(next);
+    setSelectedId("");
+    setRuns([]);
+    try {
+      await refreshHistory(next);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "History failed to load");
     }
   }
 
@@ -70,11 +152,64 @@ export function App() {
       {result && (
         <section aria-labelledby="result-title">
           <h2 id="result-title">Analysis result</h2>
+          <p><strong>Run:</strong> {result.run_number}</p>
           <p><strong>Findings:</strong> {result.finding_count}</p>
           <p><strong>Rules evaluated:</strong> {result.evaluated_rule_ids.join(", ")}</p>
           <pre data-testid="markdown-report">{result.markdown_report}</pre>
         </section>
       )}
+
+      <section aria-labelledby="history-title">
+        <h2 id="history-title">Investigation history</h2>
+        <label>
+          <input type="checkbox" checked={includeArchived} onChange={toggleArchived} />
+          Show archived investigations
+        </label>
+        {investigations.length === 0 ? (
+          <p>No persisted investigations yet.</p>
+        ) : (
+          <ul>
+            {investigations.map((item) => (
+              <li key={item.investigation_id}>
+                <button type="button" onClick={() => loadHistory(item.investigation_id)}>
+                  {item.title}
+                </button>
+                <span> — {item.status}, {item.analysis_run_count} run(s)</span>
+                <button
+                  type="button"
+                  onClick={() => changeArchiveState(
+                    item.investigation_id,
+                    item.status === "archived" ? "reopen" : "archive"
+                  )}
+                >
+                  {item.status === "archived" ? "Reopen" : "Archive"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {selectedId && (
+          <section aria-labelledby="runs-title">
+            <h3 id="runs-title">Analysis runs for {selectedId}</h3>
+            <ul>
+              {runs.map((run) => (
+                <li key={run.run_number}>
+                  <strong>Run {run.run_number}</strong> — {run.ruleset_version}, {run.finding_count} finding(s)
+                  {" "}
+                  <a href={`/api/investigations/${selectedId}/runs/${run.run_number}/report.json`}>
+                    Export JSON
+                  </a>
+                  {" · "}
+                  <a href={`/api/investigations/${selectedId}/runs/${run.run_number}/report.md`}>
+                    Export Markdown
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+      </section>
     </main>
   );
 }
