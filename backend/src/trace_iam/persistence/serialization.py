@@ -1,7 +1,8 @@
 import json
 from dataclasses import asdict
 from datetime import datetime
-from typing import Any
+from enum import StrEnum
+from typing import Any, cast
 
 from trace_iam.domain import (
     Confidence,
@@ -13,12 +14,14 @@ from trace_iam.domain import (
     ScenarioType,
 )
 
+JsonObject = dict[str, Any]
+
 
 def _default(value: object) -> str:
     if isinstance(value, datetime):
         return value.isoformat()
-    if hasattr(value, "value"):
-        return str(value.value)
+    if isinstance(value, StrEnum):
+        return value.value
     raise TypeError(f"Unsupported JSON value: {type(value)!r}")
 
 
@@ -35,31 +38,32 @@ def investigation_to_json(investigation: Investigation) -> str:
 
 
 def investigation_from_json(payload: str) -> Investigation:
-    data = loads(payload)
+    data = cast(JsonObject, loads(payload))
+    raw_items = cast(list[JsonObject], data["evidence_items"])
     evidence_items = tuple(
         EvidenceItem(
-            id=item["id"],
-            kind=EvidenceKind(item["kind"]),
-            source=item["source"],
-            captured_at=datetime.fromisoformat(item["captured_at"])
+            id=cast(str, item["id"]),
+            kind=EvidenceKind(cast(str, item["kind"])),
+            source=cast(str, item["source"]),
+            captured_at=datetime.fromisoformat(cast(str, item["captured_at"]))
             if item["captured_at"]
             else None,
-            subject=item["subject"],
-            resource=item["resource"],
-            redacted=item["redacted"],
-            original_excerpt=item["original_excerpt"],
+            subject=cast(str | None, item["subject"]),
+            resource=cast(str | None, item["resource"]),
+            redacted=cast(bool, item["redacted"]),
+            original_excerpt=cast(str | None, item["original_excerpt"]),
         )
-        for item in data["evidence_items"]
+        for item in raw_items
     )
     return Investigation(
-        id=data["id"],
-        title=data["title"],
-        scenario_type=ScenarioType(data["scenario_type"]),
-        status=InvestigationStatus(data["status"]),
-        affected_subject=data["affected_subject"],
-        affected_resource=data["affected_resource"],
+        id=cast(str, data["id"]),
+        title=cast(str, data["title"]),
+        scenario_type=ScenarioType(cast(str, data["scenario_type"])),
+        status=InvestigationStatus(cast(str, data["status"])),
+        affected_subject=cast(str | None, data["affected_subject"]),
+        affected_resource=cast(str | None, data["affected_resource"]),
         evidence_items=evidence_items,
-        created_at=datetime.fromisoformat(data["created_at"]),
+        created_at=datetime.fromisoformat(cast(str, data["created_at"])),
     )
 
 
@@ -68,15 +72,16 @@ def facts_to_json(facts: tuple[EvidenceFact, ...]) -> str:
 
 
 def facts_from_json(payload: str) -> tuple[EvidenceFact, ...]:
+    items = cast(list[JsonObject], loads(payload))
     return tuple(
         EvidenceFact(
-            fact_type=item["fact_type"],
-            value=item["value"],
-            source_evidence_id=item["source_evidence_id"],
-            certainty=Confidence(item["certainty"]),
-            observed_at=datetime.fromisoformat(item["observed_at"])
+            fact_type=cast(str, item["fact_type"]),
+            value=cast(str | int | bool, item["value"]),
+            source_evidence_id=cast(str, item["source_evidence_id"]),
+            certainty=Confidence(cast(str, item["certainty"])),
+            observed_at=datetime.fromisoformat(cast(str, item["observed_at"]))
             if item["observed_at"]
             else None,
         )
-        for item in loads(payload)
+        for item in items
     )
