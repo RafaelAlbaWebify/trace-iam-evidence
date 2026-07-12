@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+dist/
+playwright-report/
+test-results/
+
+# TRACE local runtime data
+*.db
+*.db-shm
+*.db-wal
+
+# Operating systems and editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
