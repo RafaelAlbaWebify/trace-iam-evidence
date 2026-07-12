@@ -62,7 +62,7 @@ def test_analysis_is_persisted_and_exportable(tmp_path: Path) -> None:
             "/api/investigations/history-1/runs/1/report.md"
         )
         assert json_report.status_code == 200
-        assert json_report.json()["investigation_id"] == "history-1"
+        assert json_report.json()["investigation"]["id"] == "history-1"
         assert markdown_report.status_code == 200
         assert "Persist this analysis" in markdown_report.text
     finally:
