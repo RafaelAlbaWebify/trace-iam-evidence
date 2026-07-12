@@ -1,11 +1,16 @@
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
-from trace_iam.application import analyze
+from trace_iam.application import AnalysisOutcome, analyze
 from trace_iam.domain import AnalysisContext, Investigation, ScenarioType
-from trace_iam.evidence import ManualConditionalAccessEvidence, normalize_manual_evidence
+from trace_iam.evidence import (
+    EntraCsvValidationError,
+    ManualConditionalAccessEvidence,
+    normalize_manual_evidence,
+    parse_entra_signin_csv,
+)
 from trace_iam.reporting import build_report
 from trace_iam.rules import ConditionalAccessFailureRule
 
@@ -30,12 +35,30 @@ class ManualConditionalAccessRequest(BaseModel):
         return value
 
 
+class CsvConditionalAccessRequest(BaseModel):
+    investigation_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    source: str = Field(min_length=1)
+    csv_text: str = Field(min_length=1)
+
+
 class AnalysisResponse(BaseModel):
     investigation_id: str
     evaluated_rule_ids: list[str]
     finding_count: int
     json_report: dict[str, Any]
     markdown_report: str
+
+
+def _response(investigation: Investigation, outcome: AnalysisOutcome) -> AnalysisResponse:
+    report = build_report(investigation, outcome)
+    return AnalysisResponse(
+        investigation_id=investigation.id,
+        evaluated_rule_ids=list(outcome.evaluated_rule_ids),
+        finding_count=len(outcome.findings),
+        json_report=report.json_report,
+        markdown_report=report.markdown_report,
+    )
 
 
 @router.post("/analyze-conditional-access", response_model=AnalysisResponse)
@@ -59,11 +82,24 @@ def analyze_conditional_access(request: ManualConditionalAccessRequest) -> Analy
         AnalysisContext(investigation=investigation, facts=facts),
         [ConditionalAccessFailureRule()],
     )
-    report = build_report(investigation, outcome)
-    return AnalysisResponse(
-        investigation_id=investigation.id,
-        evaluated_rule_ids=list(outcome.evaluated_rule_ids),
-        finding_count=len(outcome.findings),
-        json_report=report.json_report,
-        markdown_report=report.markdown_report,
+    return _response(investigation, outcome)
+
+
+@router.post("/analyze-conditional-access-csv", response_model=AnalysisResponse)
+def analyze_conditional_access_csv(request: CsvConditionalAccessRequest) -> AnalysisResponse:
+    try:
+        parsed = parse_entra_signin_csv(request.csv_text, request.source)
+    except EntraCsvValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    investigation = Investigation(
+        id=request.investigation_id,
+        title=request.title,
+        scenario_type=ScenarioType.CONDITIONAL_ACCESS,
+        evidence_items=parsed.evidence_items,
     )
+    outcome = analyze(
+        AnalysisContext(investigation=investigation, facts=parsed.facts),
+        [ConditionalAccessFailureRule()],
+    )
+    return _response(investigation, outcome)
