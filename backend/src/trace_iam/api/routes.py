@@ -1,7 +1,7 @@
 from typing import Any
 
 from fastapi import APIRouter
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from trace_iam.application import analyze
 from trace_iam.domain import AnalysisContext, Investigation, ScenarioType
@@ -21,6 +21,13 @@ class ManualConditionalAccessRequest(BaseModel):
     conditional_access_succeeded: bool = False
     policy_name: str | None = Field(default=None, min_length=1)
     redacted: bool = True
+
+    @field_validator("redacted")
+    @classmethod
+    def require_redacted_evidence(cls, value: bool) -> bool:
+        if not value:
+            raise ValueError("TRACE accepts only redacted manual evidence")
+        return value
 
 
 class AnalysisResponse(BaseModel):
