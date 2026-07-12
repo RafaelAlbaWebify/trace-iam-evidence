@@ -1,11 +1,12 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
+from enum import StrEnum
 from typing import Any, cast
 
 from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session
 
-from trace_iam.domain import EvidenceFact, Investigation
+from trace_iam.domain import EvidenceFact, Investigation, InvestigationStatus
 
 from .models import AnalysisRunRecord, InvestigationRecord
 from .serialization import (
@@ -20,6 +21,22 @@ from .serialization import (
 JsonObject = dict[str, Any]
 
 
+class EvidenceRetentionMode(StrEnum):
+    FULL_REDACTED = "full_redacted"
+    METADATA_ONLY = "metadata_only"
+
+
+@dataclass(frozen=True, slots=True)
+class InvestigationSummary:
+    investigation_id: str
+    title: str
+    scenario_type: str
+    status: InvestigationStatus
+    created_at: datetime
+    archived_at: datetime | None
+    analysis_run_count: int
+
+
 @dataclass(frozen=True, slots=True)
 class StoredAnalysisRun:
     run_number: int
@@ -32,28 +49,46 @@ class StoredAnalysisRun:
 
 
 class InvestigationRepository:
-    def __init__(self, engine: Engine) -> None:
+    def __init__(
+        self,
+        engine: Engine,
+        retention_mode: EvidenceRetentionMode = EvidenceRetentionMode.FULL_REDACTED,
+    ) -> None:
         self._engine = engine
+        self._retention_mode = retention_mode
+
+    @property
+    def retention_mode(self) -> EvidenceRetentionMode:
+        return self._retention_mode
+
+    def _retained_investigation(self, investigation: Investigation) -> Investigation:
+        if self._retention_mode is EvidenceRetentionMode.FULL_REDACTED:
+            return investigation
+        retained_items = tuple(
+            replace(item, original_excerpt=None) for item in investigation.evidence_items
+        )
+        return replace(investigation, evidence_items=retained_items)
 
     def save_investigation(self, investigation: Investigation) -> None:
+        retained = self._retained_investigation(investigation)
         with Session(self._engine) as session:
-            record = session.get(InvestigationRecord, investigation.id)
-            snapshot = investigation_to_json(investigation)
+            record = session.get(InvestigationRecord, retained.id)
+            snapshot = investigation_to_json(retained)
             if record is None:
                 record = InvestigationRecord(
-                    id=investigation.id,
-                    title=investigation.title,
-                    scenario_type=investigation.scenario_type.value,
-                    status=investigation.status.value,
-                    created_at=investigation.created_at,
+                    id=retained.id,
+                    title=retained.title,
+                    scenario_type=retained.scenario_type.value,
+                    status=retained.status.value,
+                    created_at=retained.created_at,
                     archived_at=None,
                     snapshot_json=snapshot,
                 )
                 session.add(record)
             else:
-                record.title = investigation.title
-                record.scenario_type = investigation.scenario_type.value
-                record.status = investigation.status.value
+                record.title = retained.title
+                record.scenario_type = retained.scenario_type.value
+                record.status = retained.status.value
                 record.snapshot_json = snapshot
             session.commit()
 
@@ -61,6 +96,59 @@ class InvestigationRepository:
         with Session(self._engine) as session:
             record = session.get(InvestigationRecord, investigation_id)
             return None if record is None else investigation_from_json(record.snapshot_json)
+
+    def list_investigations(self, *, include_archived: bool = False) -> tuple[InvestigationSummary, ...]:
+        with Session(self._engine) as session:
+            run_counts = (
+                select(
+                    AnalysisRunRecord.investigation_id,
+                    func.count(AnalysisRunRecord.id).label("run_count"),
+                )
+                .group_by(AnalysisRunRecord.investigation_id)
+                .subquery()
+            )
+            query = (
+                select(InvestigationRecord, func.coalesce(run_counts.c.run_count, 0))
+                .outerjoin(run_counts, run_counts.c.investigation_id == InvestigationRecord.id)
+                .order_by(InvestigationRecord.created_at.desc(), InvestigationRecord.id)
+            )
+            if not include_archived:
+                query = query.where(InvestigationRecord.archived_at.is_(None))
+            rows = session.execute(query).all()
+            return tuple(
+                InvestigationSummary(
+                    investigation_id=record.id,
+                    title=record.title,
+                    scenario_type=record.scenario_type,
+                    status=InvestigationStatus(record.status),
+                    created_at=record.created_at,
+                    archived_at=record.archived_at,
+                    analysis_run_count=int(run_count),
+                )
+                for record, run_count in rows
+            )
+
+    def archive_investigation(self, investigation_id: str) -> Investigation:
+        return self._set_archive_state(investigation_id, archived=True)
+
+    def reopen_investigation(self, investigation_id: str) -> Investigation:
+        return self._set_archive_state(investigation_id, archived=False)
+
+    def _set_archive_state(self, investigation_id: str, *, archived: bool) -> Investigation:
+        with Session(self._engine) as session:
+            record = session.get(InvestigationRecord, investigation_id)
+            if record is None:
+                raise KeyError(f"Investigation {investigation_id!r} does not exist")
+            investigation = investigation_from_json(record.snapshot_json)
+            next_status = InvestigationStatus.ARCHIVED if archived else InvestigationStatus.ANALYZED
+            updated = replace(investigation, status=next_status)
+            record.status = next_status.value
+            record.archived_at = (
+                datetime.now(timezone.utc).replace(tzinfo=None) if archived else None
+            )
+            record.snapshot_json = investigation_to_json(updated)
+            session.commit()
+            return updated
 
     def append_analysis_run(
         self,
@@ -111,15 +199,26 @@ class InvestigationRepository:
                 .where(AnalysisRunRecord.investigation_id == investigation_id)
                 .order_by(AnalysisRunRecord.run_number)
             ).all()
-            return tuple(
-                StoredAnalysisRun(
-                    run_number=record.run_number,
-                    created_at=record.created_at,
-                    ruleset_version=record.ruleset_version,
-                    facts=facts_from_json(record.facts_json),
-                    findings=cast(list[JsonObject], loads(record.findings_json)),
-                    report_json=cast(JsonObject, loads(record.report_json)),
-                    report_markdown=record.report_markdown,
+            return tuple(self._stored_run(record) for record in records)
+
+    def get_analysis_run(self, investigation_id: str, run_number: int) -> StoredAnalysisRun | None:
+        with Session(self._engine) as session:
+            record = session.scalar(
+                select(AnalysisRunRecord).where(
+                    AnalysisRunRecord.investigation_id == investigation_id,
+                    AnalysisRunRecord.run_number == run_number,
                 )
-                for record in records
             )
+            return None if record is None else self._stored_run(record)
+
+    @staticmethod
+    def _stored_run(record: AnalysisRunRecord) -> StoredAnalysisRun:
+        return StoredAnalysisRun(
+            run_number=record.run_number,
+            created_at=record.created_at,
+            ruleset_version=record.ruleset_version,
+            facts=facts_from_json(record.facts_json),
+            findings=cast(list[JsonObject], loads(record.findings_json)),
+            report_json=cast(JsonObject, loads(record.report_json)),
+            report_markdown=record.report_markdown,
+        )

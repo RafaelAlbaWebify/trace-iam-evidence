@@ -2,6 +2,18 @@
 
 from .database import sqlite_engine
 from .models import Base
-from .repository import InvestigationRepository, StoredAnalysisRun
+from .repository import (
+    EvidenceRetentionMode,
+    InvestigationRepository,
+    InvestigationSummary,
+    StoredAnalysisRun,
+)
 
-__all__ = ["Base", "InvestigationRepository", "StoredAnalysisRun", "sqlite_engine"]
+__all__ = [
+    "Base",
+    "EvidenceRetentionMode",
+    "InvestigationRepository",
+    "InvestigationSummary",
+    "StoredAnalysisRun",
+    "sqlite_engine",
+]
