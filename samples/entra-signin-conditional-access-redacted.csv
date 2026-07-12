@@ -1,0 +1,3 @@
+Sign-in ID,Conditional Access Status,Failure Reason,Conditional Access Policy
+sample-signin-001,failure,Device is not compliant,Require compliant device
+sample-signin-002,success,,Require MFA
