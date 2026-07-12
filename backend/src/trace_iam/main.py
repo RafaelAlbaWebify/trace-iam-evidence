@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 
+from trace_iam.api import router as investigation_router
+
 
 class HealthResponse(BaseModel):
     status: str
@@ -9,6 +11,7 @@ class HealthResponse(BaseModel):
 
 
 app = FastAPI(title="TRACE IAM Evidence API", version="0.1.0")
+app.include_router(investigation_router)
 
 
 @app.get("/api/health", response_model=HealthResponse)
