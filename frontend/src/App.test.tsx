@@ -12,7 +12,7 @@ test("renders the Conditional Access operator workflow", () => {
     screen.getByRole("heading", { name: "Conditional Access evidence review" })
   ).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Analyze evidence" })).toBeInTheDocument();
-  expect(screen.getByLabelText("Redacted Entra sign-in CSV")).toHaveValue(
-    expect.stringContaining("Conditional Access Status")
-  );
+
+  const csvEvidence = screen.getByLabelText("Redacted Entra sign-in CSV") as HTMLTextAreaElement;
+  expect(csvEvidence.value).toContain("Conditional Access Status");
 });
