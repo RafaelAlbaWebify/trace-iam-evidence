@@ -63,4 +63,5 @@ def test_unredacted_manual_evidence_is_rejected() -> None:
         },
     )
 
-    assert response.status_code == 400
+    assert response.status_code == 422
+    assert "TRACE accepts only redacted manual evidence" in response.text
