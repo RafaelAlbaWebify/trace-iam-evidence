@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, field_validator
 from trace_iam.application import AnalysisOutcome, analyze
 from trace_iam.domain import (
     AnalysisContext,
+    CasePriority,
     EvidenceFact,
     Investigation,
     InvestigationStatus,
@@ -32,6 +33,20 @@ router = APIRouter(prefix="/api/investigations", tags=["investigations"])
 class CreateInvestigationRequest(BaseModel):
     title: str = Field(min_length=3, max_length=120)
     scenario_type: ScenarioType
+    priority: CasePriority = CasePriority.NORMAL
+    external_reference: str | None = Field(default=None, min_length=2, max_length=80)
+    summary: str | None = Field(default=None, min_length=3, max_length=500)
+
+
+class UpdateInvestigationRequest(BaseModel):
+    title: str | None = Field(default=None, min_length=3, max_length=120)
+    priority: CasePriority | None = None
+    external_reference: str | None = Field(default=None, min_length=2, max_length=80)
+    summary: str | None = Field(default=None, min_length=3, max_length=500)
+
+
+class TransitionInvestigationRequest(BaseModel):
+    status: InvestigationStatus
 
 
 class ManualConditionalAccessRequest(BaseModel):
@@ -73,6 +88,9 @@ class InvestigationSummaryResponse(BaseModel):
     title: str
     scenario_type: str
     status: str
+    priority: str
+    external_reference: str | None
+    summary: str | None
     created_at: datetime
     archived_at: datetime | None
     analysis_run_count: int
@@ -83,6 +101,9 @@ class InvestigationDetailResponse(BaseModel):
     title: str
     scenario_type: str
     status: str
+    priority: str
+    external_reference: str | None
+    summary: str | None
     created_at: datetime
     evidence_item_count: int
     analysis_run_count: int
@@ -95,6 +116,16 @@ class AnalysisRunSummaryResponse(BaseModel):
     finding_count: int
 
 
+_ALLOWED_TRANSITIONS: dict[InvestigationStatus, frozenset[InvestigationStatus]] = {
+    InvestigationStatus.DRAFT: frozenset({InvestigationStatus.EVIDENCE_VALIDATED}),
+    InvestigationStatus.EVIDENCE_VALIDATED: frozenset({InvestigationStatus.DRAFT, InvestigationStatus.ANALYZED}),
+    InvestigationStatus.ANALYZED: frozenset({InvestigationStatus.REVIEWED}),
+    InvestigationStatus.REVIEWED: frozenset({InvestigationStatus.ANALYZED, InvestigationStatus.EXPORTED}),
+    InvestigationStatus.EXPORTED: frozenset({InvestigationStatus.REVIEWED}),
+    InvestigationStatus.ARCHIVED: frozenset(),
+}
+
+
 def _detail_response(
     investigation: Investigation,
     repository: InvestigationRepository,
@@ -105,10 +136,23 @@ def _detail_response(
         title=investigation.title,
         scenario_type=investigation.scenario_type.value,
         status=investigation.status.value,
+        priority=investigation.priority.value,
+        external_reference=investigation.external_reference,
+        summary=investigation.summary,
         created_at=investigation.created_at,
         evidence_item_count=len(investigation.evidence_items),
         analysis_run_count=len(runs),
     )
+
+
+def _require_investigation(
+    investigation_id: str,
+    repository: InvestigationRepository,
+) -> Investigation:
+    investigation = repository.get_investigation(investigation_id)
+    if investigation is None:
+        raise HTTPException(status_code=404, detail="Investigation not found")
+    return investigation
 
 
 def _require_matching_investigation(
@@ -133,6 +177,18 @@ def _require_matching_investigation(
     if existing.status is InvestigationStatus.ARCHIVED:
         raise HTTPException(status_code=409, detail="Archived investigations must be reopened before analysis")
     return existing
+
+
+def _with_existing_metadata(investigation: Investigation, existing: Investigation | None) -> Investigation:
+    if existing is None:
+        return investigation
+    return replace(
+        investigation,
+        priority=existing.priority,
+        external_reference=existing.external_reference,
+        summary=existing.summary,
+        created_at=existing.created_at,
+    )
 
 
 def _persisted_response(
@@ -171,9 +227,50 @@ def create_investigation(
         id=f"trace-{uuid4().hex[:12]}",
         title=request.title.strip(),
         scenario_type=request.scenario_type,
+        priority=request.priority,
+        external_reference=request.external_reference.strip() if request.external_reference else None,
+        summary=request.summary.strip() if request.summary else None,
     )
     repository.save_investigation(investigation)
     return _detail_response(investigation, repository)
+
+
+@router.patch("/{investigation_id}", response_model=InvestigationDetailResponse)
+def update_investigation(
+    investigation_id: str,
+    request: UpdateInvestigationRequest,
+    repository: InvestigationRepository = Depends(get_repository),
+) -> InvestigationDetailResponse:
+    investigation = _require_investigation(investigation_id, repository)
+    if investigation.status is InvestigationStatus.ARCHIVED:
+        raise HTTPException(status_code=409, detail="Archived investigations must be reopened before editing")
+    updated = replace(
+        investigation,
+        title=request.title.strip() if request.title is not None else investigation.title,
+        priority=request.priority if request.priority is not None else investigation.priority,
+        external_reference=(request.external_reference.strip() if request.external_reference else investigation.external_reference),
+        summary=request.summary.strip() if request.summary else investigation.summary,
+    )
+    repository.save_investigation(updated)
+    return _detail_response(updated, repository)
+
+
+@router.post("/{investigation_id}/transition", response_model=InvestigationDetailResponse)
+def transition_investigation(
+    investigation_id: str,
+    request: TransitionInvestigationRequest,
+    repository: InvestigationRepository = Depends(get_repository),
+) -> InvestigationDetailResponse:
+    investigation = _require_investigation(investigation_id, repository)
+    allowed = _ALLOWED_TRANSITIONS[investigation.status]
+    if request.status not in allowed:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot transition investigation from {investigation.status.value} to {request.status.value}",
+        )
+    updated = replace(investigation, status=request.status)
+    repository.save_investigation(updated)
+    return _detail_response(updated, repository)
 
 
 @router.post("/analyze-conditional-access", response_model=AnalysisResponse)
@@ -196,12 +293,14 @@ def analyze_conditional_access(
         redacted=request.redacted,
     )
     evidence_item, facts = normalize_manual_evidence(manual_evidence)
-    investigation = Investigation(
-        id=request.investigation_id,
-        title=request.title,
-        scenario_type=ScenarioType.CONDITIONAL_ACCESS,
-        evidence_items=(evidence_item,),
-        created_at=existing.created_at if existing else datetime.utcnow(),
+    investigation = _with_existing_metadata(
+        Investigation(
+            id=request.investigation_id,
+            title=request.title,
+            scenario_type=ScenarioType.CONDITIONAL_ACCESS,
+            evidence_items=(evidence_item,),
+        ),
+        existing,
     )
     outcome = analyze(
         AnalysisContext(investigation=investigation, facts=facts),
@@ -226,12 +325,14 @@ def analyze_conditional_access_csv(
     except EntraCsvValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    investigation = Investigation(
-        id=request.investigation_id,
-        title=request.title,
-        scenario_type=ScenarioType.CONDITIONAL_ACCESS,
-        evidence_items=parsed.evidence_items,
-        created_at=existing.created_at if existing else datetime.utcnow(),
+    investigation = _with_existing_metadata(
+        Investigation(
+            id=request.investigation_id,
+            title=request.title,
+            scenario_type=ScenarioType.CONDITIONAL_ACCESS,
+            evidence_items=parsed.evidence_items,
+        ),
+        existing,
     )
     outcome = analyze(
         AnalysisContext(investigation=investigation, facts=parsed.facts),
@@ -251,6 +352,9 @@ def list_investigations(
             title=item.title,
             scenario_type=item.scenario_type,
             status=item.status.value,
+            priority=item.priority.value,
+            external_reference=item.external_reference,
+            summary=item.summary,
             created_at=item.created_at,
             archived_at=item.archived_at,
             analysis_run_count=item.analysis_run_count,
@@ -264,10 +368,7 @@ def load_investigation(
     investigation_id: str,
     repository: InvestigationRepository = Depends(get_repository),
 ) -> InvestigationDetailResponse:
-    investigation = repository.get_investigation(investigation_id)
-    if investigation is None:
-        raise HTTPException(status_code=404, detail="Investigation not found")
-    return _detail_response(investigation, repository)
+    return _detail_response(_require_investigation(investigation_id, repository), repository)
 
 
 @router.get("/{investigation_id}/runs", response_model=list[AnalysisRunSummaryResponse])
@@ -275,8 +376,7 @@ def list_analysis_runs(
     investigation_id: str,
     repository: InvestigationRepository = Depends(get_repository),
 ) -> list[AnalysisRunSummaryResponse]:
-    if repository.get_investigation(investigation_id) is None:
-        raise HTTPException(status_code=404, detail="Investigation not found")
+    _require_investigation(investigation_id, repository)
     return [
         AnalysisRunSummaryResponse(
             run_number=run.run_number,
