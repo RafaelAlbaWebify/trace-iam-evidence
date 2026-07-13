@@ -136,7 +136,7 @@ Exit proof:
 
 ## Current status
 
-Milestones 0–6 and Post-release Milestones 7.1–7.2 are complete. Release candidate `v0.1.0-rc.1` is published. Post-release Milestone 7.3 is in progress.
+Milestones 0–6, Post-release Milestones 7.1–7.2, and Milestone 7.3.1 are complete. Release candidate `v0.1.0-rc.1` is published. Milestone 7.3.2 is preparing the stable `v0.1.0` release.
 
 ## Post-release Milestone 7 — Operator workflow parity
 
@@ -176,7 +176,7 @@ Exit proof:
 
 ### 7.3 Operator usability and release polish — in progress
 
-#### 7.3.1 Scenario navigation and result presentation
+#### 7.3.1 Scenario navigation and result presentation — complete
 
 Deliverables:
 
@@ -193,11 +193,20 @@ Exit proof:
 - result summary and detailed evidence report are both visible in browser proof;
 - Ubuntu, Windows, release-publisher, and release-pack gates remain green.
 
-#### 7.3.2 Validation guidance and release preparation
+#### 7.3.2 Validation guidance and stable release — in progress
 
 Deliverables:
 
-- scenario-specific validation guidance and clearer API errors;
-- improved loading, empty-history, and failure states;
-- refreshed README, demo guide, screenshots, and release notes;
-- stable `v0.1.0` release after controlled review.
+- scenario-specific redaction and evidence guidance;
+- readable structured API validation and connection errors;
+- distinct loading, empty-history, failure, and success states;
+- refreshed README, three-scenario demo guide, screenshots, and stable release notes;
+- stable `v0.1.0` release publication workflow.
+
+Exit proof:
+
+- unit tests prove readable structured validation errors;
+- browser proof preserves all three scenario workflows and refreshed states;
+- backend and frontend gates pass on Ubuntu and Windows;
+- Ubuntu and Windows release packs remain reproducible;
+- the stable tag is created only from the verified merge commit and its tag-triggered workflows pass.
