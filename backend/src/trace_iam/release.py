@@ -34,12 +34,21 @@ def _json_default(value: object) -> str:
     raise TypeError(f"Unsupported JSON value: {type(value)!r}")
 
 
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(65536), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+def _normalize_text(value: str) -> str:
+    return value.replace("\r\n", "\n").replace("\r", "\n")
+
+
+def _write_text(path: Path, value: str) -> None:
+    path.write_text(
+        _normalize_text(value),
+        encoding="utf-8",
+        newline="\n",
+    )
+
+
+def _sha256_text(path: Path) -> str:
+    normalized = _normalize_text(path.read_text(encoding="utf-8"))
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
 
 def _load(path: Path) -> JsonObject:
@@ -157,7 +166,8 @@ def build_release_proof(scenario_dir: Path, output_dir: Path) -> Path:
         stem = scenario_path.stem
         json_path = reports_dir / f"{stem}.json"
         markdown_path = reports_dir / f"{stem}.md"
-        json_path.write_text(
+        _write_text(
+            json_path,
             json.dumps(
                 report.json_report,
                 default=_json_default,
@@ -165,9 +175,8 @@ def build_release_proof(scenario_dir: Path, output_dir: Path) -> Path:
                 sort_keys=True,
             )
             + "\n",
-            encoding="utf-8",
         )
-        markdown_path.write_text(report.markdown_report, encoding="utf-8")
+        _write_text(markdown_path, report.markdown_report)
         manifest_entries.append(
             {
                 "scenario": scenario_path.name,
@@ -175,11 +184,11 @@ def build_release_proof(scenario_dir: Path, output_dir: Path) -> Path:
                 "investigation_id": investigation.id,
                 "evaluated_rule_ids": list(outcome.evaluated_rule_ids),
                 "finding_count": len(outcome.findings),
-                "scenario_sha256": _sha256(scenario_path),
+                "scenario_sha256": _sha256_text(scenario_path),
                 "json_report": json_path.name,
-                "json_report_sha256": _sha256(json_path),
+                "json_report_sha256": _sha256_text(json_path),
                 "markdown_report": markdown_path.name,
-                "markdown_report_sha256": _sha256(markdown_path),
+                "markdown_report_sha256": _sha256_text(markdown_path),
                 "findings": [asdict(finding) for finding in outcome.findings],
             }
         )
@@ -191,7 +200,8 @@ def build_release_proof(scenario_dir: Path, output_dir: Path) -> Path:
         )
 
     manifest_path = output_dir / "manifest.json"
-    manifest_path.write_text(
+    _write_text(
+        manifest_path,
         json.dumps(
             {
                 "format_version": "1.0",
@@ -203,6 +213,5 @@ def build_release_proof(scenario_dir: Path, output_dir: Path) -> Path:
             sort_keys=True,
         )
         + "\n",
-        encoding="utf-8",
     )
     return manifest_path
