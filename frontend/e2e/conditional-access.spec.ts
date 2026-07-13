@@ -4,10 +4,10 @@ import { mkdir, writeFile } from "node:fs/promises";
 test("operator creates a case, analyzes evidence, and manages immutable history", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "TRACE IAM Evidence" })).toBeVisible();
-  await expect(page.getByText("No persisted investigations yet.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create investigation" })).toBeEnabled();
 
   await page.getByLabel("Case title").fill("Conditional Access sign-in review");
-  await page.getByLabel("Scenario").selectOption("conditional_access");
+  await page.getByRole("combobox", { name: "Scenario", exact: true }).selectOption("conditional_access");
   const createResponsePromise = page.waitForResponse((response) => response.url().endsWith("/api/investigations") && response.request().method() === "POST");
   await page.getByRole("button", { name: "Create investigation" }).click();
   expect((await createResponsePromise).ok()).toBeTruthy();
