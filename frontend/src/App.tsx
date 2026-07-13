@@ -31,10 +31,42 @@ type AnalysisRun = {
   finding_count: number;
 };
 
+type ApiErrorItem = {
+  loc?: Array<string | number>;
+  msg?: string;
+};
+
+function errorMessage(payload: unknown, fallback: string): string {
+  if (!payload || typeof payload !== "object") return fallback;
+  const detail = (payload as { detail?: unknown }).detail;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .map((item: ApiErrorItem) => {
+        const field = item.loc?.filter((part) => part !== "body").join(" → ");
+        return item.msg ? `${field ? `${field}: ` : ""}${item.msg}` : "";
+      })
+      .filter(Boolean);
+    if (messages.length > 0) return messages.join("; ");
+  }
+  return fallback;
+}
+
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, init);
-  const payload = await response.json();
-  if (!response.ok) throw new Error(payload.detail ?? "Request failed");
+  let response: Response;
+  try {
+    response = await fetch(path, init);
+  } catch {
+    throw new Error("TRACE could not reach the local API. Confirm that the backend is running on port 8000.");
+  }
+
+  let payload: unknown = null;
+  try {
+    payload = await response.json();
+  } catch {
+    if (!response.ok) throw new Error(`The local API returned HTTP ${response.status} without a readable error body.`);
+  }
+  if (!response.ok) throw new Error(errorMessage(payload, `Request failed with HTTP ${response.status}.`));
   return payload as T;
 }
 
@@ -58,6 +90,7 @@ export function App() {
   const [includeArchived, setIncludeArchived] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(true);
 
   async function refreshHistory(showArchived = includeArchived) {
     const query = showArchived ? "?include_archived=true" : "";
@@ -65,7 +98,9 @@ export function App() {
   }
 
   useEffect(() => {
-    refreshHistory().catch((caught) => setError(caught instanceof Error ? caught.message : "History failed to load"));
+    refreshHistory()
+      .catch((caught) => setError(caught instanceof Error ? caught.message : "History failed to load"))
+      .finally(() => setHistoryLoading(false));
   }, []);
 
   async function completeAnalysis(payload: AnalysisResponse) {
@@ -76,14 +111,10 @@ export function App() {
     document.getElementById("analysis-result")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  function beginAnalysis() {
+  async function runAnalysis(path: string, body: Record<string, unknown>) {
     setLoading(true);
     setError("");
     setResult(null);
-  }
-
-  async function runAnalysis(path: string, body: Record<string, unknown>) {
-    beginAnalysis();
     try {
       await completeAnalysis(await api<AnalysisResponse>(path, {
         method: "POST",
@@ -144,13 +175,14 @@ export function App() {
   }
 
   async function toggleArchived() {
-    const next = !includeArchived; setIncludeArchived(next); setSelectedId(""); setRuns([]);
+    const next = !includeArchived; setIncludeArchived(next); setSelectedId(""); setRuns([]); setHistoryLoading(true);
     try { await refreshHistory(next); }
     catch (caught) { setError(caught instanceof Error ? caught.message : "History failed to load"); }
+    finally { setHistoryLoading(false); }
   }
 
   return (
-    <main className="app-shell">
+    <main className="app-shell" aria-busy={loading}>
       <header className="hero">
         <p className="eyebrow">Local-first IAM evidence investigation workbench</p>
         <h1>TRACE IAM Evidence</h1>
@@ -164,37 +196,43 @@ export function App() {
         <a href="#history">History<span>Runs and exports</span></a>
       </nav>
 
+      <aside className="privacy-note" aria-label="Evidence safety guidance">
+        <strong>Use redacted evidence only.</strong> Replace real names, email addresses, tenant IDs, object IDs, tokens, and confidential resource names before analysis. TRACE never connects to a live tenant or changes access.
+      </aside>
+
       <section id="conditional-access" className="workflow-card" aria-labelledby="workflow-title">
         <div className="section-heading"><span>Scenario 01</span><h2 id="workflow-title">Conditional Access evidence review</h2></div>
-        <p>Paste only redacted CSV evidence matching the documented four-column contract.</p>
+        <p>Paste redacted CSV evidence with exactly these headers: Sign-in ID, Conditional Access Status, Failure Reason, and Conditional Access Policy.</p>
         <form onSubmit={submitConditionalAccess}>
           <label htmlFor="csv-evidence">Redacted Entra sign-in CSV</label>
-          <textarea id="csv-evidence" rows={8} value={csvText} onChange={(event) => setCsvText(event.target.value)} />
-          <button type="submit" disabled={loading}>{loading ? "Analyzing…" : "Analyze evidence"}</button>
+          <textarea id="csv-evidence" aria-describedby="csv-guidance" rows={8} value={csvText} onChange={(event) => setCsvText(event.target.value)} required />
+          <small id="csv-guidance" className="field-guidance">Keep one sign-in record per row. Do not paste access tokens, full user identities, or unrestricted tenant exports.</small>
+          <button type="submit" disabled={loading}>{loading ? "Analyzing evidence…" : "Analyze evidence"}</button>
         </form>
       </section>
 
       <section id="resource-assignment" className="workflow-card" aria-labelledby="assignment-workflow-title">
         <div className="section-heading"><span>Scenario 02</span><h2 id="assignment-workflow-title">Resource assignment evidence review</h2></div>
-        <p>Record redacted evidence about a failed access attempt and the expected assignment.</p>
+        <p>Describe one failed access attempt and the assignment expected for that specific resource.</p>
         <form onSubmit={submitResourceAssignment}>
           <label htmlFor="assignment-subject">Redacted subject</label>
-          <input id="assignment-subject" value={assignmentSubject} onChange={(event) => setAssignmentSubject(event.target.value)} required />
+          <input id="assignment-subject" aria-describedby="assignment-guidance" value={assignmentSubject} onChange={(event) => setAssignmentSubject(event.target.value)} required />
           <label htmlFor="assignment-resource">Resource</label>
           <input id="assignment-resource" value={assignmentResource} onChange={(event) => setAssignmentResource(event.target.value)} required />
           <label htmlFor="assignment-name">Expected assignment</label>
           <input id="assignment-name" value={assignmentName} onChange={(event) => setAssignmentName(event.target.value)} />
+          <small id="assignment-guidance" className="field-guidance">Use placeholders for the subject and resource. Mark assignment present only when the supplied evidence supports it.</small>
           <label className="check-row"><input type="checkbox" checked={assignmentPresent} onChange={(event) => setAssignmentPresent(event.target.checked)} />Assignment is present in supplied evidence</label>
-          <button type="submit" disabled={loading}>{loading ? "Analyzing…" : "Analyze resource assignment"}</button>
+          <button type="submit" disabled={loading}>{loading ? "Analyzing assignment…" : "Analyze resource assignment"}</button>
         </form>
       </section>
 
       <section id="guest-b2b" className="workflow-card" aria-labelledby="guest-workflow-title">
         <div className="section-heading"><span>Scenario 03</span><h2 id="guest-workflow-title">Guest B2B lifecycle evidence review</h2></div>
-        <p>Keep invitation, redemption, tenant restriction, and resource assignment evidence distinct.</p>
+        <p>Record invitation, redemption, tenant restriction, and resource assignment as separate evidence states.</p>
         <form onSubmit={submitGuestB2B}>
           <label htmlFor="guest-subject">Redacted guest subject</label>
-          <input id="guest-subject" value={guestSubject} onChange={(event) => setGuestSubject(event.target.value)} required />
+          <input id="guest-subject" aria-describedby="guest-guidance" value={guestSubject} onChange={(event) => setGuestSubject(event.target.value)} required />
           <label htmlFor="guest-resource">Guest resource</label>
           <input id="guest-resource" value={guestResource} onChange={(event) => setGuestResource(event.target.value)} required />
           <div className="check-grid">
@@ -205,11 +243,13 @@ export function App() {
           </div>
           <label htmlFor="restriction-detail">Redacted restriction detail</label>
           <input id="restriction-detail" value={restrictionDetail} onChange={(event) => setRestrictionDetail(event.target.value)} />
-          <button type="submit" disabled={loading}>{loading ? "Analyzing…" : "Analyze Guest B2B evidence"}</button>
+          <small id="guest-guidance" className="field-guidance">Do not infer redemption, assignment, or cross-tenant restrictions from one another. Record only what the supplied evidence directly supports.</small>
+          <button type="submit" disabled={loading}>{loading ? "Analyzing guest evidence…" : "Analyze Guest B2B evidence"}</button>
         </form>
       </section>
 
-      {error && <p className="alert" role="alert">{error}</p>}
+      {loading && <p className="status" role="status">TRACE is evaluating the supplied redacted evidence and saving an immutable analysis run.</p>}
+      {error && <p className="alert" role="alert"><strong>TRACE could not complete the request.</strong><span>{error}</span></p>}
       {result && (
         <section id="analysis-result" className="result-panel" aria-labelledby="result-title">
           <div className="section-heading"><span>Evidence outcome</span><h2 id="result-title">Analysis result</h2></div>
@@ -227,8 +267,11 @@ export function App() {
 
       <section id="history" className="history-panel" aria-labelledby="history-title">
         <div className="section-heading"><span>Local evidence record</span><h2 id="history-title">Investigation history</h2></div>
+        <p>History is stored only in the local SQLite database. Select an investigation to inspect immutable runs and export its stored reports.</p>
         <label className="check-row"><input type="checkbox" checked={includeArchived} onChange={toggleArchived} />Show archived investigations</label>
-        {investigations.length === 0 ? <p className="empty-state">No persisted investigations yet.</p> : (
+        {historyLoading ? <p className="status" role="status">Loading local investigation history…</p> : investigations.length === 0 ? (
+          <div className="empty-state"><strong>No persisted investigations yet.</strong><span>Run any scenario above to create the first immutable analysis record.</span></div>
+        ) : (
           <ul className="history-list">{investigations.map((item) => (
             <li key={item.investigation_id}>
               <button type="button" onClick={() => loadHistory(item.investigation_id)}>{item.title}</button>
