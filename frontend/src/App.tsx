@@ -40,6 +40,10 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function App() {
   const [csvText, setCsvText] = useState(SAMPLE_CSV);
+  const [assignmentSubject, setAssignmentSubject] = useState("redacted-user");
+  const [assignmentResource, setAssignmentResource] = useState("Finance application");
+  const [assignmentName, setAssignmentName] = useState("Finance App User");
+  const [assignmentPresent, setAssignmentPresent] = useState(false);
   const [result, setResult] = useState<AnalysisResponse | null>(null);
   const [investigations, setInvestigations] = useState<InvestigationSummary[]>([]);
   const [runs, setRuns] = useState<AnalysisRun[]>([]);
@@ -60,7 +64,14 @@ export function App() {
     });
   }, []);
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
+  async function completeAnalysis(payload: AnalysisResponse) {
+    setResult(payload);
+    setSelectedId(payload.investigation_id);
+    await refreshHistory();
+    setRuns(await api<AnalysisRun[]>(`/api/investigations/${payload.investigation_id}/runs`));
+  }
+
+  async function submitConditionalAccess(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
     setError("");
@@ -80,10 +91,42 @@ export function App() {
           })
         }
       );
-      setResult(payload);
-      setSelectedId(payload.investigation_id);
-      await refreshHistory();
-      setRuns(await api<AnalysisRun[]>(`/api/investigations/${payload.investigation_id}/runs`));
+      await completeAnalysis(payload);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Analysis failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function submitResourceAssignment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoading(true);
+    setError("");
+    setResult(null);
+
+    try {
+      const payload = await api<AnalysisResponse>(
+        "/api/investigations/analyze-resource-assignment",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            investigation_id: "browser-ra-001",
+            title: "Resource assignment review",
+            evidence_id: "browser-ra-evidence-001",
+            source: "public-safe browser sample",
+            subject: assignmentSubject,
+            resource: assignmentResource,
+            access_failed: true,
+            assignment_required: true,
+            assignment_present: assignmentPresent,
+            assignment_name: assignmentName || null,
+            redacted: true
+          })
+        }
+      );
+      await completeAnalysis(payload);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Analysis failed");
     } finally {
@@ -131,10 +174,11 @@ export function App() {
     <main>
       <p>Local-first IAM evidence investigation workbench</p>
       <h1>TRACE IAM Evidence</h1>
+
       <section aria-labelledby="workflow-title">
         <h2 id="workflow-title">Conditional Access evidence review</h2>
         <p>Paste only redacted CSV evidence matching the documented four-column contract.</p>
-        <form onSubmit={submit}>
+        <form onSubmit={submitConditionalAccess}>
           <label htmlFor="csv-evidence">Redacted Entra sign-in CSV</label>
           <textarea
             id="csv-evidence"
@@ -144,6 +188,44 @@ export function App() {
           />
           <button type="submit" disabled={loading}>
             {loading ? "Analyzing…" : "Analyze evidence"}
+          </button>
+        </form>
+      </section>
+
+      <section aria-labelledby="assignment-workflow-title">
+        <h2 id="assignment-workflow-title">Resource assignment evidence review</h2>
+        <p>Record redacted evidence about a failed access attempt and the expected assignment.</p>
+        <form onSubmit={submitResourceAssignment}>
+          <label htmlFor="assignment-subject">Redacted subject</label>
+          <input
+            id="assignment-subject"
+            value={assignmentSubject}
+            onChange={(event) => setAssignmentSubject(event.target.value)}
+            required
+          />
+          <label htmlFor="assignment-resource">Resource</label>
+          <input
+            id="assignment-resource"
+            value={assignmentResource}
+            onChange={(event) => setAssignmentResource(event.target.value)}
+            required
+          />
+          <label htmlFor="assignment-name">Expected assignment</label>
+          <input
+            id="assignment-name"
+            value={assignmentName}
+            onChange={(event) => setAssignmentName(event.target.value)}
+          />
+          <label>
+            <input
+              type="checkbox"
+              checked={assignmentPresent}
+              onChange={(event) => setAssignmentPresent(event.target.checked)}
+            />
+            Assignment is present in supplied evidence
+          </label>
+          <button type="submit" disabled={loading}>
+            {loading ? "Analyzing…" : "Analyze resource assignment"}
           </button>
         </form>
       </section>
@@ -175,6 +257,7 @@ export function App() {
                   {item.title}
                 </button>
                 <span> — {item.status}, {item.analysis_run_count} run(s)</span>
+                <small> ({item.scenario_type})</small>
                 <button
                   type="button"
                   onClick={() => changeArchiveState(

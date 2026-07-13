@@ -9,7 +9,7 @@ afterEach(() => {
 });
 
 
-test("renders the Conditional Access workflow and investigation history", async () => {
+test("renders Conditional Access, resource assignment, and investigation history workflows", async () => {
   vi.stubGlobal(
     "fetch",
     vi.fn().mockResolvedValue({
@@ -25,6 +25,15 @@ test("renders the Conditional Access workflow and investigation history", async 
     screen.getByRole("heading", { name: "Conditional Access evidence review" })
   ).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Analyze evidence" })).toBeInTheDocument();
+  expect(
+    screen.getByRole("heading", { name: "Resource assignment evidence review" })
+  ).toBeInTheDocument();
+  expect(screen.getByLabelText("Redacted subject")).toHaveValue("redacted-user");
+  expect(screen.getByLabelText("Resource")).toHaveValue("Finance application");
+  expect(screen.getByLabelText("Expected assignment")).toHaveValue("Finance App User");
+  expect(
+    screen.getByRole("button", { name: "Analyze resource assignment" })
+  ).toBeInTheDocument();
   expect(
     screen.getByRole("heading", { name: "Investigation history" })
   ).toBeInTheDocument();
