@@ -1,6 +1,7 @@
 from dataclasses import asdict, replace
 from datetime import datetime
 from typing import Any
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import PlainTextResponse
@@ -26,6 +27,11 @@ from trace_iam.reporting import build_report
 from trace_iam.rules import ConditionalAccessFailureRule
 
 router = APIRouter(prefix="/api/investigations", tags=["investigations"])
+
+
+class CreateInvestigationRequest(BaseModel):
+    title: str = Field(min_length=3, max_length=120)
+    scenario_type: ScenarioType
 
 
 class ManualConditionalAccessRequest(BaseModel):
@@ -89,6 +95,46 @@ class AnalysisRunSummaryResponse(BaseModel):
     finding_count: int
 
 
+def _detail_response(
+    investigation: Investigation,
+    repository: InvestigationRepository,
+) -> InvestigationDetailResponse:
+    runs = repository.list_analysis_runs(investigation.id)
+    return InvestigationDetailResponse(
+        investigation_id=investigation.id,
+        title=investigation.title,
+        scenario_type=investigation.scenario_type.value,
+        status=investigation.status.value,
+        created_at=investigation.created_at,
+        evidence_item_count=len(investigation.evidence_items),
+        analysis_run_count=len(runs),
+    )
+
+
+def _require_matching_investigation(
+    investigation_id: str,
+    title: str,
+    scenario_type: ScenarioType,
+    repository: InvestigationRepository,
+) -> Investigation | None:
+    existing = repository.get_investigation(investigation_id)
+    if existing is None:
+        return None
+    if existing.scenario_type is not scenario_type:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Investigation belongs to {existing.scenario_type.value}; "
+                f"create or select a {scenario_type.value} investigation"
+            ),
+        )
+    if existing.title != title:
+        raise HTTPException(status_code=409, detail="Investigation title does not match the persisted case")
+    if existing.status is InvestigationStatus.ARCHIVED:
+        raise HTTPException(status_code=409, detail="Archived investigations must be reopened before analysis")
+    return existing
+
+
 def _persisted_response(
     investigation: Investigation,
     facts: tuple[EvidenceFact, ...],
@@ -116,11 +162,31 @@ def _persisted_response(
     )
 
 
+@router.post("", response_model=InvestigationDetailResponse, status_code=201)
+def create_investigation(
+    request: CreateInvestigationRequest,
+    repository: InvestigationRepository = Depends(get_repository),
+) -> InvestigationDetailResponse:
+    investigation = Investigation(
+        id=f"trace-{uuid4().hex[:12]}",
+        title=request.title.strip(),
+        scenario_type=request.scenario_type,
+    )
+    repository.save_investigation(investigation)
+    return _detail_response(investigation, repository)
+
+
 @router.post("/analyze-conditional-access", response_model=AnalysisResponse)
 def analyze_conditional_access(
     request: ManualConditionalAccessRequest,
     repository: InvestigationRepository = Depends(get_repository),
 ) -> AnalysisResponse:
+    existing = _require_matching_investigation(
+        request.investigation_id,
+        request.title,
+        ScenarioType.CONDITIONAL_ACCESS,
+        repository,
+    )
     manual_evidence = ManualConditionalAccessEvidence(
         evidence_id=request.evidence_id,
         source=request.source,
@@ -135,6 +201,7 @@ def analyze_conditional_access(
         title=request.title,
         scenario_type=ScenarioType.CONDITIONAL_ACCESS,
         evidence_items=(evidence_item,),
+        created_at=existing.created_at if existing else datetime.utcnow(),
     )
     outcome = analyze(
         AnalysisContext(investigation=investigation, facts=facts),
@@ -148,6 +215,12 @@ def analyze_conditional_access_csv(
     request: CsvConditionalAccessRequest,
     repository: InvestigationRepository = Depends(get_repository),
 ) -> AnalysisResponse:
+    existing = _require_matching_investigation(
+        request.investigation_id,
+        request.title,
+        ScenarioType.CONDITIONAL_ACCESS,
+        repository,
+    )
     try:
         parsed = parse_entra_signin_csv(request.csv_text, request.source)
     except EntraCsvValidationError as exc:
@@ -158,6 +231,7 @@ def analyze_conditional_access_csv(
         title=request.title,
         scenario_type=ScenarioType.CONDITIONAL_ACCESS,
         evidence_items=parsed.evidence_items,
+        created_at=existing.created_at if existing else datetime.utcnow(),
     )
     outcome = analyze(
         AnalysisContext(investigation=investigation, facts=parsed.facts),
@@ -193,16 +267,7 @@ def load_investigation(
     investigation = repository.get_investigation(investigation_id)
     if investigation is None:
         raise HTTPException(status_code=404, detail="Investigation not found")
-    runs = repository.list_analysis_runs(investigation_id)
-    return InvestigationDetailResponse(
-        investigation_id=investigation.id,
-        title=investigation.title,
-        scenario_type=investigation.scenario_type.value,
-        status=investigation.status.value,
-        created_at=investigation.created_at,
-        evidence_item_count=len(investigation.evidence_items),
-        analysis_run_count=len(runs),
-    )
+    return _detail_response(investigation, repository)
 
 
 @router.get("/{investigation_id}/runs", response_model=list[AnalysisRunSummaryResponse])
