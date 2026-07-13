@@ -1,0 +1,16 @@
+{
+  "scenario_type": "resource_assignment",
+  "investigation_id": "release-ra-001",
+  "title": "Finance application assignment review",
+  "evidence": {
+    "evidence_id": "release-ra-evidence-001",
+    "source": "public-safe release fixture",
+    "subject": "redacted-user",
+    "resource": "Finance application",
+    "access_failed": true,
+    "assignment_required": true,
+    "assignment_present": false,
+    "assignment_name": "Finance App User",
+    "redacted": true
+  }
+}
