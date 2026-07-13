@@ -6,7 +6,7 @@ from typing import Any, cast
 from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session
 
-from trace_iam.domain import EvidenceFact, Investigation, InvestigationStatus
+from trace_iam.domain import CasePriority, EvidenceFact, Investigation, InvestigationStatus
 
 from .models import AnalysisRunRecord, InvestigationRecord
 from .serialization import (
@@ -32,6 +32,9 @@ class InvestigationSummary:
     title: str
     scenario_type: str
     status: InvestigationStatus
+    priority: CasePriority
+    external_reference: str | None
+    summary: str | None
     created_at: datetime
     archived_at: datetime | None
     analysis_run_count: int
@@ -115,18 +118,24 @@ class InvestigationRepository:
             if not include_archived:
                 query = query.where(InvestigationRecord.archived_at.is_(None))
             rows = session.execute(query).all()
-            return tuple(
-                InvestigationSummary(
-                    investigation_id=record.id,
-                    title=record.title,
-                    scenario_type=record.scenario_type,
-                    status=InvestigationStatus(record.status),
-                    created_at=record.created_at,
-                    archived_at=record.archived_at,
-                    analysis_run_count=int(run_count),
+            summaries: list[InvestigationSummary] = []
+            for record, run_count in rows:
+                investigation = investigation_from_json(record.snapshot_json)
+                summaries.append(
+                    InvestigationSummary(
+                        investigation_id=record.id,
+                        title=record.title,
+                        scenario_type=record.scenario_type,
+                        status=InvestigationStatus(record.status),
+                        priority=investigation.priority,
+                        external_reference=investigation.external_reference,
+                        summary=investigation.summary,
+                        created_at=record.created_at,
+                        archived_at=record.archived_at,
+                        analysis_run_count=int(run_count),
+                    )
                 )
-                for record, run_count in rows
-            )
+            return tuple(summaries)
 
     def archive_investigation(self, investigation_id: str) -> Investigation:
         return self._set_archive_state(investigation_id, archived=True)
