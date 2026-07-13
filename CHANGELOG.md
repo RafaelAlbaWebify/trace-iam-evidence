@@ -1,35 +1,35 @@
 # Release notes
 
-## v0.1.0-rc.1 — Portfolio release candidate
+## v0.1.0 — Stable operator release
 
-TRACE IAM Evidence now provides an evidence-backed, local-first IAM investigation portfolio release.
+TRACE IAM Evidence provides a local-first, read-only IAM evidence workbench with three complete browser workflows, immutable local history, report exports, and cross-platform release proof.
 
-### Included scenarios
+### Operator workflows
 
-- Conditional Access evidence review with manual and documented redacted CSV input.
-- Resource-assignment investigation using the shared domain and rule contracts.
-- Guest/B2B lifecycle investigation with distinct invitation, redemption, tenant-restriction, and assignment evidence.
+- Conditional Access evidence review using the documented redacted CSV contract.
+- Resource-assignment investigation using `RA-001` and the shared domain contracts.
+- Guest/B2B lifecycle investigation with invitation, redemption, tenant restriction, and resource assignment kept as separate evidence states.
+- Scenario navigation, responsive workflow panels, and readable analysis summaries.
+- Investigation history, immutable runs, archive/reopen behavior, and stored JSON/Markdown exports for every scenario.
 
-### Investigation workflow
+### Validation and safety
 
-- deterministic versioned rules;
-- supporting, contradicting, and missing evidence;
-- safe recommended checks and explicit non-actions;
-- Markdown and JSON reports;
-- local SQLite persistence and Alembic migrations;
-- immutable analysis-run history;
-- load, export, archive, and reopen workflow;
-- configurable redacted-evidence retention.
+- Scenario-specific redaction and evidence guidance.
+- Explicit reminders not to submit identities, tenant IDs, tokens, credentials, or unrestricted exports.
+- Readable FastAPI validation errors instead of raw structured objects.
+- Distinct loading, empty-history, API-connection, failure, and success states.
+- Safe recommended checks and explicit non-actions preserved in every report.
+- No live-tenant connection, access grant, invitation change, policy modification, or automated remediation.
 
 ### Release proof
 
-- reproducible three-scenario release-pack builder;
-- SHA-256 manifest for source fixtures and generated reports;
-- Linux and Windows release-candidate jobs;
-- backend lint, strict typing, and tests;
-- frontend type checking, tests, and production build;
-- Chromium browser acceptance proof with reports, logs, and screenshot artifacts.
+- Backend lint, strict typing, and tests on Ubuntu and Windows.
+- Frontend type checking, tests, and production builds on Ubuntu and Windows.
+- Chromium acceptance proof for all three operator workflows.
+- Reproducible public-safe release packs on Ubuntu and Windows.
+- SHA-256 manifest for source fixtures and generated reports.
+- Self-locating, Windows-tested release publication script.
 
-### Safety boundary
+## v0.1.0-rc.1 — Portfolio release candidate
 
-This release contains no tenant connection, credential storage, automated remediation, access grants, policy changes, or external writes.
+TRACE IAM Evidence introduced the evidence-backed architecture, three public-safe scenarios, deterministic versioned rules, SQLite persistence, immutable analysis history, report generation, and reproducible release proof that formed the basis of the stable release.
