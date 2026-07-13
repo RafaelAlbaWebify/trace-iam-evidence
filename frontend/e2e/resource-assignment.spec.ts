@@ -22,9 +22,12 @@ test("operator analyzes and persists resource assignment evidence", async ({ pag
     "Do not grant broad or tenant-wide privileges"
   );
 
-  await expect(page.getByRole("button", { name: "Resource assignment review" })).toBeVisible();
-  await expect(page.getByText("resource_assignment", { exact: true })).toBeVisible();
-  await expect(page.getByText("analyzed, 1 run(s)")).toBeVisible();
+  const historyRow = page
+    .getByRole("button", { name: "Resource assignment review" })
+    .locator("..");
+  await expect(historyRow).toBeVisible();
+  await expect(historyRow).toContainText("resource_assignment");
+  await expect(historyRow).toContainText("analyzed, 1 run(s)");
   await expect(page.getByRole("link", { name: "Export JSON" })).toHaveAttribute(
     "href",
     "/api/investigations/browser-ra-001/runs/1/report.json"
