@@ -44,6 +44,13 @@ export function App() {
   const [assignmentResource, setAssignmentResource] = useState("Finance application");
   const [assignmentName, setAssignmentName] = useState("Finance App User");
   const [assignmentPresent, setAssignmentPresent] = useState(false);
+  const [guestSubject, setGuestSubject] = useState("redacted-guest");
+  const [guestResource, setGuestResource] = useState("Partner portal");
+  const [invitationSent, setInvitationSent] = useState(true);
+  const [invitationRedeemed, setInvitationRedeemed] = useState(false);
+  const [tenantRestrictionObserved, setTenantRestrictionObserved] = useState(false);
+  const [guestAssignmentPresent, setGuestAssignmentPresent] = useState(false);
+  const [restrictionDetail, setRestrictionDetail] = useState("");
   const [result, setResult] = useState<AnalysisResponse | null>(null);
   const [investigations, setInvestigations] = useState<InvestigationSummary[]>([]);
   const [runs, setRuns] = useState<AnalysisRun[]>([]);
@@ -71,12 +78,19 @@ export function App() {
     setRuns(await api<AnalysisRun[]>(`/api/investigations/${payload.investigation_id}/runs`));
   }
 
-  async function submitConditionalAccess(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function beginAnalysis() {
     setLoading(true);
     setError("");
     setResult(null);
+  }
 
+  function finishAnalysis() {
+    setLoading(false);
+  }
+
+  async function submitConditionalAccess(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    beginAnalysis();
     try {
       const payload = await api<AnalysisResponse>(
         "/api/investigations/analyze-conditional-access-csv",
@@ -95,16 +109,13 @@ export function App() {
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Analysis failed");
     } finally {
-      setLoading(false);
+      finishAnalysis();
     }
   }
 
   async function submitResourceAssignment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setLoading(true);
-    setError("");
-    setResult(null);
-
+    beginAnalysis();
     try {
       const payload = await api<AnalysisResponse>(
         "/api/investigations/analyze-resource-assignment",
@@ -130,7 +141,40 @@ export function App() {
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Analysis failed");
     } finally {
-      setLoading(false);
+      finishAnalysis();
+    }
+  }
+
+  async function submitGuestB2B(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    beginAnalysis();
+    try {
+      const payload = await api<AnalysisResponse>(
+        "/api/investigations/analyze-guest-b2b",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            investigation_id: "browser-gb-001",
+            title: "Guest B2B lifecycle review",
+            evidence_id: "browser-gb-evidence-001",
+            source: "public-safe browser sample",
+            guest_subject: guestSubject,
+            resource: guestResource,
+            invitation_sent: invitationSent,
+            invitation_redeemed: invitationRedeemed,
+            tenant_restriction_observed: tenantRestrictionObserved,
+            resource_assignment_present: guestAssignmentPresent,
+            restriction_detail: restrictionDetail || null,
+            redacted: true
+          })
+        }
+      );
+      await completeAnalysis(payload);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Analysis failed");
+    } finally {
+      finishAnalysis();
     }
   }
 
@@ -180,15 +224,8 @@ export function App() {
         <p>Paste only redacted CSV evidence matching the documented four-column contract.</p>
         <form onSubmit={submitConditionalAccess}>
           <label htmlFor="csv-evidence">Redacted Entra sign-in CSV</label>
-          <textarea
-            id="csv-evidence"
-            rows={8}
-            value={csvText}
-            onChange={(event) => setCsvText(event.target.value)}
-          />
-          <button type="submit" disabled={loading}>
-            {loading ? "Analyzing…" : "Analyze evidence"}
-          </button>
+          <textarea id="csv-evidence" rows={8} value={csvText} onChange={(event) => setCsvText(event.target.value)} />
+          <button type="submit" disabled={loading}>{loading ? "Analyzing…" : "Analyze evidence"}</button>
         </form>
       </section>
 
@@ -197,36 +234,31 @@ export function App() {
         <p>Record redacted evidence about a failed access attempt and the expected assignment.</p>
         <form onSubmit={submitResourceAssignment}>
           <label htmlFor="assignment-subject">Redacted subject</label>
-          <input
-            id="assignment-subject"
-            value={assignmentSubject}
-            onChange={(event) => setAssignmentSubject(event.target.value)}
-            required
-          />
+          <input id="assignment-subject" value={assignmentSubject} onChange={(event) => setAssignmentSubject(event.target.value)} required />
           <label htmlFor="assignment-resource">Resource</label>
-          <input
-            id="assignment-resource"
-            value={assignmentResource}
-            onChange={(event) => setAssignmentResource(event.target.value)}
-            required
-          />
+          <input id="assignment-resource" value={assignmentResource} onChange={(event) => setAssignmentResource(event.target.value)} required />
           <label htmlFor="assignment-name">Expected assignment</label>
-          <input
-            id="assignment-name"
-            value={assignmentName}
-            onChange={(event) => setAssignmentName(event.target.value)}
-          />
-          <label>
-            <input
-              type="checkbox"
-              checked={assignmentPresent}
-              onChange={(event) => setAssignmentPresent(event.target.checked)}
-            />
-            Assignment is present in supplied evidence
-          </label>
-          <button type="submit" disabled={loading}>
-            {loading ? "Analyzing…" : "Analyze resource assignment"}
-          </button>
+          <input id="assignment-name" value={assignmentName} onChange={(event) => setAssignmentName(event.target.value)} />
+          <label><input type="checkbox" checked={assignmentPresent} onChange={(event) => setAssignmentPresent(event.target.checked)} />Assignment is present in supplied evidence</label>
+          <button type="submit" disabled={loading}>{loading ? "Analyzing…" : "Analyze resource assignment"}</button>
+        </form>
+      </section>
+
+      <section aria-labelledby="guest-workflow-title">
+        <h2 id="guest-workflow-title">Guest B2B lifecycle evidence review</h2>
+        <p>Keep invitation, redemption, tenant restriction, and resource assignment evidence distinct.</p>
+        <form onSubmit={submitGuestB2B}>
+          <label htmlFor="guest-subject">Redacted guest subject</label>
+          <input id="guest-subject" value={guestSubject} onChange={(event) => setGuestSubject(event.target.value)} required />
+          <label htmlFor="guest-resource">Guest resource</label>
+          <input id="guest-resource" value={guestResource} onChange={(event) => setGuestResource(event.target.value)} required />
+          <label><input type="checkbox" checked={invitationSent} onChange={(event) => setInvitationSent(event.target.checked)} />Invitation was sent</label>
+          <label><input type="checkbox" checked={invitationRedeemed} onChange={(event) => setInvitationRedeemed(event.target.checked)} />Invitation was redeemed</label>
+          <label><input type="checkbox" checked={tenantRestrictionObserved} onChange={(event) => setTenantRestrictionObserved(event.target.checked)} />Tenant restriction was observed</label>
+          <label><input type="checkbox" checked={guestAssignmentPresent} onChange={(event) => setGuestAssignmentPresent(event.target.checked)} />Resource assignment is present</label>
+          <label htmlFor="restriction-detail">Redacted restriction detail</label>
+          <input id="restriction-detail" value={restrictionDetail} onChange={(event) => setRestrictionDetail(event.target.value)} />
+          <button type="submit" disabled={loading}>{loading ? "Analyzing…" : "Analyze Guest B2B evidence"}</button>
         </form>
       </section>
 
@@ -243,28 +275,17 @@ export function App() {
 
       <section aria-labelledby="history-title">
         <h2 id="history-title">Investigation history</h2>
-        <label>
-          <input type="checkbox" checked={includeArchived} onChange={toggleArchived} />
-          Show archived investigations
-        </label>
+        <label><input type="checkbox" checked={includeArchived} onChange={toggleArchived} />Show archived investigations</label>
         {investigations.length === 0 ? (
           <p>No persisted investigations yet.</p>
         ) : (
           <ul>
             {investigations.map((item) => (
               <li key={item.investigation_id}>
-                <button type="button" onClick={() => loadHistory(item.investigation_id)}>
-                  {item.title}
-                </button>
+                <button type="button" onClick={() => loadHistory(item.investigation_id)}>{item.title}</button>
                 <span> — {item.status}, {item.analysis_run_count} run(s)</span>
                 <small> ({item.scenario_type})</small>
-                <button
-                  type="button"
-                  onClick={() => changeArchiveState(
-                    item.investigation_id,
-                    item.status === "archived" ? "reopen" : "archive"
-                  )}
-                >
+                <button type="button" onClick={() => changeArchiveState(item.investigation_id, item.status === "archived" ? "reopen" : "archive")}>
                   {item.status === "archived" ? "Reopen" : "Archive"}
                 </button>
               </li>
@@ -278,15 +299,9 @@ export function App() {
             <ul>
               {runs.map((run) => (
                 <li key={run.run_number}>
-                  <strong>Run {run.run_number}</strong> — {run.ruleset_version}, {run.finding_count} finding(s)
-                  {" "}
-                  <a href={`/api/investigations/${selectedId}/runs/${run.run_number}/report.json`}>
-                    Export JSON
-                  </a>
-                  {" · "}
-                  <a href={`/api/investigations/${selectedId}/runs/${run.run_number}/report.md`}>
-                    Export Markdown
-                  </a>
+                  <strong>Run {run.run_number}</strong> — {run.ruleset_version}, {run.finding_count} finding(s){" "}
+                  <a href={`/api/investigations/${selectedId}/runs/${run.run_number}/report.json`}>Export JSON</a>{" · "}
+                  <a href={`/api/investigations/${selectedId}/runs/${run.run_number}/report.md`}>Export Markdown</a>
                 </li>
               ))}
             </ul>

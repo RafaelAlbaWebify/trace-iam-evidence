@@ -136,13 +136,13 @@ Exit proof:
 
 ## Current status
 
-Milestones 0–6 are complete. Release candidate `v0.1.0-rc.1` is published. The project is now in post-release productization.
+Milestones 0–6 and Post-release Milestone 7.1 are complete. Release candidate `v0.1.0-rc.1` is published. Post-release Milestone 7.2 is in progress.
 
 ## Post-release Milestone 7 — Operator workflow parity
 
 Goal: expose every supported scenario through the same local operator experience, persistence model, report exports, and browser proof.
 
-### 7.1 Resource-assignment operator workflow — in progress
+### 7.1 Resource-assignment operator workflow — complete
 
 Deliverables:
 
@@ -159,13 +159,20 @@ Exit proof:
 - JSON and Markdown reports export successfully;
 - Conditional Access browser proof remains green.
 
-### 7.2 Guest/B2B operator workflow — next
+### 7.2 Guest/B2B operator workflow — in progress
 
 Deliverables:
 
 - invitation, redemption, tenant restriction, and resource-assignment inputs remain distinct;
 - persisted guest/B2B analysis and report export;
 - browser proof for safe non-actions.
+
+Exit proof:
+
+- an unredeemed invitation produces the expected `GB-001` finding in the browser;
+- the investigation is persisted with the complete Guest/B2B ruleset version;
+- JSON and Markdown reports export successfully;
+- Conditional Access and resource-assignment browser proof remain green.
 
 ### 7.3 Operator usability and release polish
 

@@ -9,7 +9,7 @@ afterEach(() => {
 });
 
 
-test("renders Conditional Access, resource assignment, and investigation history workflows", async () => {
+test("renders all supported operator workflows and investigation history", async () => {
   vi.stubGlobal(
     "fetch",
     vi.fn().mockResolvedValue({
@@ -33,6 +33,18 @@ test("renders Conditional Access, resource assignment, and investigation history
   expect(screen.getByLabelText("Expected assignment")).toHaveValue("Finance App User");
   expect(
     screen.getByRole("button", { name: "Analyze resource assignment" })
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("heading", { name: "Guest B2B lifecycle evidence review" })
+  ).toBeInTheDocument();
+  expect(screen.getByLabelText("Redacted guest subject")).toHaveValue("redacted-guest");
+  expect(screen.getByLabelText("Guest resource")).toHaveValue("Partner portal");
+  expect(screen.getByLabelText("Invitation was sent")).toBeChecked();
+  expect(screen.getByLabelText("Invitation was redeemed")).not.toBeChecked();
+  expect(screen.getByLabelText("Tenant restriction was observed")).not.toBeChecked();
+  expect(screen.getByLabelText("Resource assignment is present")).not.toBeChecked();
+  expect(
+    screen.getByRole("button", { name: "Analyze Guest B2B evidence" })
   ).toBeInTheDocument();
   expect(
     screen.getByRole("heading", { name: "Investigation history" })
