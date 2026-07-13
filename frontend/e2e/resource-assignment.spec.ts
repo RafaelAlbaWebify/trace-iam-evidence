@@ -1,33 +1,36 @@
 import { expect, test } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 
-test("operator analyzes and persists resource assignment evidence", async ({ page }) => {
+test("operator creates and analyzes a persisted resource-assignment case", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Resource assignment evidence review" })).toBeVisible();
-  await expect(page.getByRole("link", { name: /Resource assignment/ })).toHaveAttribute("href", "#resource-assignment");
+  await expect(page.getByText("No persisted investigations yet.")).toBeVisible();
 
-  const responsePromise = page.waitForResponse(
-    (response) => response.url().includes("analyze-resource-assignment")
-  );
+  await page.getByLabel("Case title").fill("Resource assignment review");
+  await page.getByLabel("Scenario").selectOption("resource_assignment");
+  const createResponsePromise = page.waitForResponse((response) => response.url().endsWith("/api/investigations") && response.request().method() === "POST");
+  await page.getByRole("button", { name: "Create investigation" }).click();
+  expect((await createResponsePromise).ok()).toBeTruthy();
+
+  const investigationId = (await page.locator(".active-case code").textContent())?.trim();
+  expect(investigationId).toMatch(/^trace-[a-f0-9]{12}$/);
+  await expect(page.getByRole("button", { name: "Analyze resource assignment" })).toBeEnabled();
+
+  const responsePromise = page.waitForResponse((response) => response.url().includes("analyze-resource-assignment"));
   await page.getByRole("button", { name: "Analyze resource assignment" }).click();
-  const response = await responsePromise;
-  expect(response.ok()).toBeTruthy();
+  expect((await responsePromise).ok()).toBeTruthy();
 
   await expect(page.getByRole("heading", { name: "Analysis result" })).toBeVisible();
   const summary = page.getByRole("region", { name: "Analysis result" }).getByLabel("Analysis summary");
-  await expect(summary).toContainText("1");
   await expect(summary).toContainText("RA-001");
   await expect(page.getByTestId("markdown-report")).toContainText("Do not grant broad or tenant-wide privileges");
 
   const historyRow = page.getByRole("button", { name: "Resource assignment review" }).locator("..");
-  await expect(historyRow).toBeVisible();
   await expect(historyRow).toContainText("resource_assignment");
   await expect(historyRow).toContainText("analyzed · 1 run(s)");
-  await expect(page.getByRole("link", { name: "Export JSON" })).toHaveAttribute("href", "/api/investigations/browser-ra-001/runs/1/report.json");
-  await expect(page.getByRole("link", { name: "Export Markdown" })).toHaveAttribute("href", "/api/investigations/browser-ra-001/runs/1/report.md");
+  await expect(page.getByRole("link", { name: "Export JSON" })).toHaveAttribute("href", `/api/investigations/${investigationId}/runs/1/report.json`);
 
-  const jsonReportResponse = await page.request.get("/api/investigations/browser-ra-001/runs/1/report.json");
-  const markdownReportResponse = await page.request.get("/api/investigations/browser-ra-001/runs/1/report.md");
+  const jsonReportResponse = await page.request.get(`/api/investigations/${investigationId}/runs/1/report.json`);
+  const markdownReportResponse = await page.request.get(`/api/investigations/${investigationId}/runs/1/report.md`);
   expect(jsonReportResponse.ok()).toBeTruthy();
   expect(markdownReportResponse.ok()).toBeTruthy();
 
