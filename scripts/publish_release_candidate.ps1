@@ -39,6 +39,9 @@ function Invoke-GitProcess {
 
     $process = [System.Diagnostics.Process]::new()
     $process.StartInfo = $startInfo
+    $standardOutput = ''
+    $standardError = ''
+    $exitCode = -1
 
     try {
         if (-not $process.Start()) {
@@ -47,13 +50,14 @@ function Invoke-GitProcess {
         $standardOutput = $process.StandardOutput.ReadToEnd()
         $standardError = $process.StandardError.ReadToEnd()
         $process.WaitForExit()
+        $exitCode = $process.ExitCode
     }
     finally {
         $process.Dispose()
     }
 
     $result = [pscustomobject]@{
-        ExitCode = $process.ExitCode
+        ExitCode = $exitCode
         StdOut   = if ($null -eq $standardOutput) { '' } else { $standardOutput.Trim() }
         StdErr   = if ($null -eq $standardError) { '' } else { $standardError.Trim() }
         Command  = "git $($Arguments -join ' ')"
