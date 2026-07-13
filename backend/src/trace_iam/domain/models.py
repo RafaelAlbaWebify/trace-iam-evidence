@@ -21,6 +21,13 @@ class InvestigationStatus(StrEnum):
     ARCHIVED = "archived"
 
 
+class CasePriority(StrEnum):
+    LOW = "low"
+    NORMAL = "normal"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
 class EvidenceKind(StrEnum):
     MANUAL_STRUCTURED = "manual_structured"
     ENTRA_SIGNIN_CSV = "entra_signin_csv"
@@ -108,6 +115,9 @@ class Investigation:
     title: str
     scenario_type: ScenarioType
     status: InvestigationStatus = InvestigationStatus.DRAFT
+    priority: CasePriority = CasePriority.NORMAL
+    external_reference: str | None = None
+    summary: str | None = None
     affected_subject: str | None = None
     affected_resource: str | None = None
     evidence_items: tuple[EvidenceItem, ...] = ()
@@ -118,6 +128,10 @@ class Investigation:
             raise ValueError("Investigation id must not be blank")
         if not self.title.strip():
             raise ValueError("Investigation title must not be blank")
+        if self.external_reference is not None and not self.external_reference.strip():
+            raise ValueError("External reference must not be blank")
+        if self.summary is not None and not self.summary.strip():
+            raise ValueError("Investigation summary must not be blank")
 
 
 @dataclass(frozen=True, slots=True)
