@@ -1,0 +1,17 @@
+{
+  "scenario_type": "guest_b2b",
+  "investigation_id": "release-gb-001",
+  "title": "Guest B2B tenant restriction review",
+  "evidence": {
+    "evidence_id": "release-gb-evidence-001",
+    "source": "public-safe release fixture",
+    "guest_subject": "redacted-guest",
+    "resource": "Partner portal",
+    "invitation_sent": true,
+    "invitation_redeemed": true,
+    "tenant_restriction_observed": true,
+    "resource_assignment_present": true,
+    "restriction_detail": "Cross-tenant access policy denied the sign-in",
+    "redacted": true
+  }
+}
