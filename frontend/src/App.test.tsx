@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 
 import { App } from "./App";
@@ -7,7 +7,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-test("renders navigable supported workflows and investigation history", async () => {
+test("renders guidance for all supported workflows and investigation history", async () => {
   vi.stubGlobal(
     "fetch",
     vi.fn().mockResolvedValue({
@@ -25,20 +25,36 @@ test("renders navigable supported workflows and investigation history", async ()
   expect(screen.getByRole("link", { name: /Resource assignment/ })).toHaveAttribute("href", "#resource-assignment");
   expect(screen.getByRole("link", { name: /Guest \/ B2B/ })).toHaveAttribute("href", "#guest-b2b");
   expect(screen.getByRole("link", { name: /History/ })).toHaveAttribute("href", "#history");
+  expect(screen.getByRole("complementary", { name: "Evidence safety guidance" })).toHaveTextContent("Use redacted evidence only");
 
-  expect(screen.getByRole("heading", { name: "Conditional Access evidence review" })).toBeInTheDocument();
+  expect(screen.getByText(/exactly these headers/)).toBeInTheDocument();
+  expect(screen.getByText(/Do not paste access tokens/)).toBeInTheDocument();
+  expect(screen.getByText(/Mark assignment present only/)).toBeInTheDocument();
+  expect(screen.getByText(/Do not infer redemption/)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Analyze evidence" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "Resource assignment evidence review" })).toBeInTheDocument();
-  expect(screen.getByLabelText("Redacted subject")).toHaveValue("redacted-user");
-  expect(screen.getByLabelText("Expected assignment")).toHaveValue("Finance App User");
-  expect(screen.getByRole("heading", { name: "Guest B2B lifecycle evidence review" })).toBeInTheDocument();
-  expect(screen.getByLabelText("Redacted guest subject")).toHaveValue("redacted-guest");
-  expect(screen.getByLabelText("Invitation was sent")).toBeChecked();
-  expect(screen.getByLabelText("Invitation was redeemed")).not.toBeChecked();
-  expect(screen.getByRole("heading", { name: "Investigation history" })).toBeInTheDocument();
-  expect(screen.getByLabelText("Show archived investigations")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Analyze resource assignment" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Analyze Guest B2B evidence" })).toBeInTheDocument();
   expect(await screen.findByText("No persisted investigations yet.")).toBeInTheDocument();
+  expect(screen.getByText(/Run any scenario above/)).toBeInTheDocument();
+});
 
-  const csvEvidence = screen.getByLabelText("Redacted Entra sign-in CSV") as HTMLTextAreaElement;
-  expect(csvEvidence.value).toContain("Conditional Access Status");
+test("renders structured API validation errors as readable operator guidance", async () => {
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce({ ok: true, json: async () => [] })
+    .mockResolvedValueOnce({
+      ok: false,
+      status: 422,
+      json: async () => ({
+        detail: [{ loc: ["body", "csv_text"], msg: "CSV headers do not match the documented contract" }]
+      })
+    });
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(<App />);
+  await screen.findByText("No persisted investigations yet.");
+  fireEvent.click(screen.getByRole("button", { name: "Analyze evidence" }));
+
+  const alert = await screen.findByRole("alert");
+  expect(alert).toHaveTextContent("TRACE could not complete the request.");
+  expect(alert).toHaveTextContent("csv_text: CSV headers do not match the documented contract");
 });
