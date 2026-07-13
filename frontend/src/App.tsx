@@ -181,8 +181,10 @@ export function App() {
     finally { setHistoryLoading(false); }
   }
 
+  const analysisDisabled = loading || historyLoading;
+
   return (
-    <main className="app-shell" aria-busy={loading}>
+    <main className="app-shell" aria-busy={analysisDisabled}>
       <header className="hero">
         <p className="eyebrow">Local-first IAM evidence investigation workbench</p>
         <h1>TRACE IAM Evidence</h1>
@@ -207,7 +209,7 @@ export function App() {
           <label htmlFor="csv-evidence">Redacted Entra sign-in CSV</label>
           <textarea id="csv-evidence" aria-describedby="csv-guidance" rows={8} value={csvText} onChange={(event) => setCsvText(event.target.value)} required />
           <small id="csv-guidance" className="field-guidance">Keep one sign-in record per row. Do not paste access tokens, full user identities, or unrestricted tenant exports.</small>
-          <button type="submit" disabled={loading}>{loading ? "Analyzing evidence…" : "Analyze evidence"}</button>
+          <button type="submit" disabled={analysisDisabled}>{loading ? "Analyzing evidence…" : historyLoading ? "Preparing local history…" : "Analyze evidence"}</button>
         </form>
       </section>
 
@@ -223,7 +225,7 @@ export function App() {
           <input id="assignment-name" value={assignmentName} onChange={(event) => setAssignmentName(event.target.value)} />
           <small id="assignment-guidance" className="field-guidance">Use placeholders for the subject and resource. Mark assignment present only when the supplied evidence supports it.</small>
           <label className="check-row"><input type="checkbox" checked={assignmentPresent} onChange={(event) => setAssignmentPresent(event.target.checked)} />Assignment is present in supplied evidence</label>
-          <button type="submit" disabled={loading}>{loading ? "Analyzing assignment…" : "Analyze resource assignment"}</button>
+          <button type="submit" disabled={analysisDisabled}>{loading ? "Analyzing assignment…" : historyLoading ? "Preparing local history…" : "Analyze resource assignment"}</button>
         </form>
       </section>
 
@@ -244,7 +246,7 @@ export function App() {
           <label htmlFor="restriction-detail">Redacted restriction detail</label>
           <input id="restriction-detail" value={restrictionDetail} onChange={(event) => setRestrictionDetail(event.target.value)} />
           <small id="guest-guidance" className="field-guidance">Do not infer redemption, assignment, or cross-tenant restrictions from one another. Record only what the supplied evidence directly supports.</small>
-          <button type="submit" disabled={loading}>{loading ? "Analyzing guest evidence…" : "Analyze Guest B2B evidence"}</button>
+          <button type="submit" disabled={analysisDisabled}>{loading ? "Analyzing guest evidence…" : historyLoading ? "Preparing local history…" : "Analyze Guest B2B evidence"}</button>
         </form>
       </section>
 
