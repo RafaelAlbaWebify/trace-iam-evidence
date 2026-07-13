@@ -1,9 +1,11 @@
 from dataclasses import asdict, replace
+from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field, field_validator
 
+from trace_iam.api.case_guard import require_matching_case
 from trace_iam.application import analyze
 from trace_iam.domain import AnalysisContext, Investigation, InvestigationStatus, ScenarioType
 from trace_iam.evidence import (
@@ -53,6 +55,12 @@ def analyze_resource_assignment(
     request: ResourceAssignmentRequest,
     repository: InvestigationRepository = Depends(get_repository),
 ) -> ResourceAssignmentResponse:
+    existing = require_matching_case(
+        request.investigation_id,
+        request.title,
+        ScenarioType.RESOURCE_ASSIGNMENT,
+        repository,
+    )
     manual_evidence = ManualResourceAssignmentEvidence(
         evidence_id=request.evidence_id,
         source=request.source,
@@ -72,6 +80,7 @@ def analyze_resource_assignment(
         affected_subject=request.subject,
         affected_resource=request.resource,
         evidence_items=(evidence_item,),
+        created_at=existing.created_at if existing else datetime.utcnow(),
     )
     outcome = analyze(
         AnalysisContext(investigation=investigation, facts=facts),
