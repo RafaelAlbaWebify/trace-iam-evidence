@@ -73,9 +73,17 @@ jobs:
             frontend/dist
           if-no-files-found: warn
 
+  release-publisher-proof:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test self-locating release publisher
+        shell: pwsh
+        run: ./scripts/test_publish_release_candidate.ps1
+
   browser-proof:
     runs-on: ubuntu-latest
-    needs: [backend, frontend]
+    needs: [backend, frontend, release-publisher-proof]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
