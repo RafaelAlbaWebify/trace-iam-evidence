@@ -23,7 +23,7 @@ test("operator analyzes and persists resource assignment evidence", async ({ pag
   );
 
   await expect(page.getByRole("button", { name: "Resource assignment review" })).toBeVisible();
-  await expect(page.getByText("resource_assignment")).toBeVisible();
+  await expect(page.getByText("resource_assignment", { exact: true })).toBeVisible();
   await expect(page.getByText("analyzed, 1 run(s)")).toBeVisible();
   await expect(page.getByRole("link", { name: "Export JSON" })).toHaveAttribute(
     "href",
