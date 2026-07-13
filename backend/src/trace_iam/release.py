@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from trace_iam.application import analyze
-from trace_iam.domain import AnalysisContext, Investigation, ScenarioType
+from trace_iam.domain import AnalysisContext, Investigation, Rule, ScenarioType
 from trace_iam.evidence import (
     ManualConditionalAccessEvidence,
     ManualGuestB2BEvidence,
@@ -46,7 +46,9 @@ def _load(path: Path) -> JsonObject:
     return cast(JsonObject, json.loads(path.read_text(encoding="utf-8")))
 
 
-def _build_scenario(data: JsonObject) -> tuple[Investigation, AnalysisContext, tuple[object, ...]]:
+def _build_scenario(
+    data: JsonObject,
+) -> tuple[Investigation, AnalysisContext, tuple[Rule, ...]]:
     scenario = ScenarioType(cast(str, data["scenario_type"]))
     evidence_data = cast(JsonObject, data["evidence"])
     investigation_id = cast(str, data["investigation_id"])
@@ -56,7 +58,9 @@ def _build_scenario(data: JsonObject) -> tuple[Investigation, AnalysisContext, t
         evidence = ManualConditionalAccessEvidence(
             evidence_id=cast(str, evidence_data["evidence_id"]),
             source=cast(str, evidence_data["source"]),
-            conditional_access_failed=cast(bool, evidence_data["conditional_access_failed"]),
+            conditional_access_failed=cast(
+                bool, evidence_data["conditional_access_failed"]
+            ),
             conditional_access_succeeded=cast(
                 bool, evidence_data["conditional_access_succeeded"]
             ),
@@ -182,7 +186,8 @@ def build_release_proof(scenario_dir: Path, output_dir: Path) -> Path:
 
     if len(manifest_entries) != 3:
         raise RuntimeError(
-            f"Release proof requires exactly three public-safe scenarios; found {len(manifest_entries)}"
+            "Release proof requires exactly three public-safe scenarios; "
+            f"found {len(manifest_entries)}"
         )
 
     manifest_path = output_dir / "manifest.json"
