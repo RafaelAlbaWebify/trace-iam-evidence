@@ -39,6 +39,38 @@ def test_release_proof_builds_three_verified_scenarios(tmp_path: Path) -> None:
         assert (output_dir / "reports" / cast(str, item["markdown_report"])).is_file()
 
 
+def test_release_proof_is_stable_across_text_line_endings(tmp_path: Path) -> None:
+    repository_root = Path(__file__).resolve().parents[2]
+    source_dir = repository_root / "examples" / "scenarios"
+    lf_dir = tmp_path / "lf-scenarios"
+    crlf_dir = tmp_path / "crlf-scenarios"
+    lf_dir.mkdir()
+    crlf_dir.mkdir()
+
+    for source_path in source_dir.glob("*.json"):
+        normalized = source_path.read_text(encoding="utf-8").replace("\r\n", "\n")
+        lf_dir.joinpath(source_path.name).write_text(
+            normalized,
+            encoding="utf-8",
+            newline="\n",
+        )
+        crlf_dir.joinpath(source_path.name).write_text(
+            normalized,
+            encoding="utf-8",
+            newline="\r\n",
+        )
+
+    lf_output = tmp_path / "lf-proof"
+    crlf_output = tmp_path / "crlf-proof"
+    lf_manifest = build_release_proof(lf_dir, lf_output)
+    crlf_manifest = build_release_proof(crlf_dir, crlf_output)
+
+    assert lf_manifest.read_bytes() == crlf_manifest.read_bytes()
+    for lf_report in sorted((lf_output / "reports").iterdir()):
+        crlf_report = crlf_output / "reports" / lf_report.name
+        assert lf_report.read_bytes() == crlf_report.read_bytes()
+
+
 def test_release_proof_rejects_incomplete_scenario_pack(tmp_path: Path) -> None:
     scenario_dir = tmp_path / "scenarios"
     scenario_dir.mkdir()
