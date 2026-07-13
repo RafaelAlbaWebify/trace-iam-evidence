@@ -7,7 +7,13 @@ from pydantic import BaseModel, Field, field_validator
 
 from trace_iam.api.case_guard import require_matching_case
 from trace_iam.application import analyze
-from trace_iam.domain import AnalysisContext, Investigation, InvestigationStatus, ScenarioType
+from trace_iam.domain import (
+    AnalysisContext,
+    CasePriority,
+    Investigation,
+    InvestigationStatus,
+    ScenarioType,
+)
 from trace_iam.evidence import (
     ManualResourceAssignmentEvidence,
     normalize_resource_assignment_evidence,
@@ -77,7 +83,7 @@ def analyze_resource_assignment(
         id=request.investigation_id,
         title=request.title,
         scenario_type=ScenarioType.RESOURCE_ASSIGNMENT,
-        priority=existing.priority if existing else Investigation.__dataclass_fields__["priority"].default,
+        priority=existing.priority if existing else CasePriority.NORMAL,
         external_reference=existing.external_reference if existing else None,
         summary=existing.summary if existing else None,
         affected_subject=request.subject,
