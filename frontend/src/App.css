@@ -9,10 +9,12 @@ a { color: #1557b0; }
 .hero h1 { margin: 4px 0 12px; font-size: clamp(2.2rem, 5vw, 4.2rem); line-height: 1; letter-spacing: -0.05em; }
 .hero p { color: #4c5870; font-size: 1.05rem; }
 .eyebrow, .section-heading span { color: #1557b0; font-size: .78rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
-.scenario-nav { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 28px 0 32px; }
+.scenario-nav { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 28px 0 20px; }
 .scenario-nav a { display: flex; flex-direction: column; gap: 4px; padding: 16px; border: 1px solid #d8dfeb; border-radius: 14px; background: #fff; color: #172033; font-weight: 750; text-decoration: none; box-shadow: 0 8px 24px rgba(31, 45, 76, .05); }
 .scenario-nav a:hover, .scenario-nav a:focus-visible { border-color: #1557b0; outline: 3px solid rgba(21, 87, 176, .15); }
 .scenario-nav span { color: #6d778b; font-size: .82rem; font-weight: 500; }
+.privacy-note { margin: 0 0 32px; padding: 16px 18px; border: 1px solid #b9cce7; border-radius: 12px; background: #eef6ff; color: #263a56; line-height: 1.55; }
+.privacy-note strong { display: block; margin-bottom: 3px; color: #154273; }
 .workflow-card, .result-panel, .history-panel { margin: 18px 0; padding: 28px; border: 1px solid #d8dfeb; border-radius: 18px; background: #fff; box-shadow: 0 12px 34px rgba(31, 45, 76, .06); scroll-margin-top: 20px; }
 .section-heading h2 { margin: 5px 0 12px; font-size: 1.55rem; }
 .workflow-card > p, .history-panel > p { color: #59657b; }
@@ -20,6 +22,7 @@ form { display: grid; gap: 10px; margin-top: 20px; }
 label { font-weight: 700; }
 input, textarea { width: 100%; padding: 11px 12px; border: 1px solid #b9c4d5; border-radius: 9px; background: #fbfcfe; }
 input:focus, textarea:focus { border-color: #1557b0; outline: 3px solid rgba(21, 87, 176, .14); }
+.field-guidance { display: block; margin-top: -3px; color: #667085; line-height: 1.45; }
 button { width: fit-content; margin-top: 8px; padding: 11px 16px; border: 0; border-radius: 9px; background: #1557b0; color: #fff; font-weight: 800; cursor: pointer; }
 button:hover { background: #0d438d; }
 button:disabled { opacity: .65; cursor: wait; }
@@ -27,7 +30,11 @@ button.secondary { margin: 0; padding: 7px 10px; background: #e8edf5; color: #26
 .check-row, .check-grid label { display: flex; align-items: center; gap: 8px; font-weight: 600; }
 .check-row input, .check-grid input { width: auto; }
 .check-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 14px; border: 1px solid #d8dfeb; border-radius: 10px; background: #f8faff; }
-.alert { padding: 14px 16px; border-left: 4px solid #b42318; border-radius: 8px; background: #fff1f0; color: #7a271a; font-weight: 700; }
+.alert, .status { display: grid; gap: 3px; padding: 14px 16px; border-radius: 8px; }
+.alert { border-left: 4px solid #b42318; background: #fff1f0; color: #7a271a; }
+.alert strong { font-weight: 800; }
+.alert span { font-weight: 600; }
+.status { border-left: 4px solid #1557b0; background: #eef6ff; color: #17406f; font-weight: 700; }
 .result-panel { border-color: #a9c7ee; background: #f8fbff; }
 .result-summary { display: grid; grid-template-columns: 120px 120px minmax(0, 1fr); gap: 12px; margin: 20px 0; }
 .result-summary article { padding: 16px; border-radius: 12px; background: #fff; border: 1px solid #d8e5f5; }
@@ -36,7 +43,8 @@ button.secondary { margin: 0; padding: 7px 10px; background: #e8edf5; color: #26
 details { border-top: 1px solid #cbd9eb; padding-top: 16px; }
 summary { cursor: pointer; font-weight: 800; }
 pre { max-height: 520px; overflow: auto; padding: 18px; border-radius: 10px; background: #121826; color: #eef4ff; white-space: pre-wrap; }
-.empty-state { padding: 18px; border: 1px dashed #bac5d6; border-radius: 10px; background: #f8faff; }
+.empty-state { display: grid; gap: 4px; padding: 18px; border: 1px dashed #bac5d6; border-radius: 10px; background: #f8faff; color: #59657b; }
+.empty-state strong { color: #26344d; }
 .history-list { display: grid; gap: 10px; padding: 0; list-style: none; }
 .history-list li { display: grid; grid-template-columns: minmax(220px, 1fr) auto auto auto; gap: 12px; align-items: center; padding: 12px; border: 1px solid #dce3ee; border-radius: 10px; }
 .history-list li > button:first-child { margin: 0; padding: 0; background: transparent; color: #1557b0; text-align: left; }
