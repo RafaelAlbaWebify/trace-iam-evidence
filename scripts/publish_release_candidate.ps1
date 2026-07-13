@@ -113,13 +113,13 @@ if (-not [string]::IsNullOrWhiteSpace($localTag)) {
     Write-Host "Local tag '$Tag' already points to the expected commit."
 }
 
-$remoteLines = Get-GitLines -Arguments @(
+$remoteLines = @(Get-GitLines -Arguments @(
     'ls-remote',
     '--tags',
     $Remote,
     "refs/tags/$Tag",
     "refs/tags/$Tag^{}"
-)
+))
 if ($remoteLines.Count -gt 0) {
     $escapedTag = [regex]::Escape($Tag)
     $peeledLine = $remoteLines |
