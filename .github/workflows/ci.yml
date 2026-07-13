@@ -27,7 +27,7 @@ jobs:
       - name: Lint
         run: python -m ruff check .
       - name: Type check
-        run: python -m mypy src
+        run: python scripts/run_typecheck.py
       - name: Test
         run: python -m pytest -q --junitxml=test-results.xml
       - name: Upload backend proof
@@ -35,7 +35,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: backend-proof-${{ matrix.os }}
-          path: backend/test-results.xml
+          path: |
+            backend/mypy-results.txt
+            backend/test-results.xml
           if-no-files-found: warn
 
   frontend:
