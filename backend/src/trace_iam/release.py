@@ -55,7 +55,7 @@ def _build_scenario(
     title = cast(str, data["title"])
 
     if scenario is ScenarioType.CONDITIONAL_ACCESS:
-        evidence = ManualConditionalAccessEvidence(
+        ca_evidence = ManualConditionalAccessEvidence(
             evidence_id=cast(str, evidence_data["evidence_id"]),
             source=cast(str, evidence_data["source"]),
             conditional_access_failed=cast(
@@ -67,7 +67,7 @@ def _build_scenario(
             policy_name=cast(str | None, evidence_data.get("policy_name")),
             redacted=cast(bool, evidence_data["redacted"]),
         )
-        item, facts = normalize_manual_evidence(evidence)
+        item, facts = normalize_manual_evidence(ca_evidence)
         investigation = Investigation(
             id=investigation_id,
             title=title,
@@ -81,7 +81,7 @@ def _build_scenario(
         )
 
     if scenario is ScenarioType.RESOURCE_ASSIGNMENT:
-        evidence = ManualResourceAssignmentEvidence(
+        assignment_evidence = ManualResourceAssignmentEvidence(
             evidence_id=cast(str, evidence_data["evidence_id"]),
             source=cast(str, evidence_data["source"]),
             subject=cast(str, evidence_data["subject"]),
@@ -92,13 +92,13 @@ def _build_scenario(
             assignment_name=cast(str | None, evidence_data.get("assignment_name")),
             redacted=cast(bool, evidence_data["redacted"]),
         )
-        item, facts = normalize_resource_assignment_evidence(evidence)
+        item, facts = normalize_resource_assignment_evidence(assignment_evidence)
         investigation = Investigation(
             id=investigation_id,
             title=title,
             scenario_type=scenario,
-            affected_subject=evidence.subject,
-            affected_resource=evidence.resource,
+            affected_subject=assignment_evidence.subject,
+            affected_resource=assignment_evidence.resource,
             evidence_items=(item,),
         )
         return (
@@ -107,7 +107,7 @@ def _build_scenario(
             (MissingResourceAssignmentRule(),),
         )
 
-    evidence = ManualGuestB2BEvidence(
+    guest_evidence = ManualGuestB2BEvidence(
         evidence_id=cast(str, evidence_data["evidence_id"]),
         source=cast(str, evidence_data["source"]),
         guest_subject=cast(str, evidence_data["guest_subject"]),
@@ -123,13 +123,13 @@ def _build_scenario(
         restriction_detail=cast(str | None, evidence_data.get("restriction_detail")),
         redacted=cast(bool, evidence_data["redacted"]),
     )
-    item, facts = normalize_guest_b2b_evidence(evidence)
+    item, facts = normalize_guest_b2b_evidence(guest_evidence)
     investigation = Investigation(
         id=investigation_id,
         title=title,
         scenario_type=scenario,
-        affected_subject=evidence.guest_subject,
-        affected_resource=evidence.resource,
+        affected_subject=guest_evidence.guest_subject,
+        affected_resource=guest_evidence.resource,
         evidence_items=(item,),
     )
     return (
