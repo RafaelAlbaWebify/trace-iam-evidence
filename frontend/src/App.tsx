@@ -256,7 +256,8 @@ export function App() {
                 <button type="button" onClick={() => loadHistory(item.investigation_id)}>
                   {item.title}
                 </button>
-                <span> — {item.scenario_type}, {item.status}, {item.analysis_run_count} run(s)</span>
+                <span> — {item.status}, {item.analysis_run_count} run(s)</span>
+                <small> ({item.scenario_type})</small>
                 <button
                   type="button"
                   onClick={() => changeArchiveState(
