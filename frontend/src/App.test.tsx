@@ -32,10 +32,10 @@ test("renders guidance for all supported workflows and investigation history", a
   expect(screen.getByText(/Do not paste access tokens/)).toBeInTheDocument();
   expect(screen.getByText(/Mark assignment present only/)).toBeInTheDocument();
   expect(screen.getByText(/Do not infer redemption/)).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Analyze evidence" })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Analyze resource assignment" })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Analyze Guest B2B evidence" })).toBeInTheDocument();
   expect(await screen.findByText("No persisted investigations yet.")).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "Analyze evidence" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Analyze resource assignment" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Analyze Guest B2B evidence" })).toBeEnabled();
   expect(screen.getByText(/Run any scenario above/)).toBeInTheDocument();
 });
 
@@ -53,7 +53,7 @@ test("renders structured API validation errors as readable operator guidance", a
 
   render(<App />);
   await screen.findByText("No persisted investigations yet.");
-  fireEvent.click(screen.getByRole("button", { name: "Analyze evidence" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Analyze evidence" }));
 
   const alert = await screen.findByRole("alert");
   expect(alert).toHaveTextContent("TRACE could not complete the request.");
