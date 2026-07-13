@@ -133,3 +133,45 @@ Exit proof:
 - release proof can be downloaded from GitHub Actions;
 - one controlled Windows release-candidate review is completed;
 - README claims match verified behaviour.
+
+## Current status
+
+Milestones 0–6 are complete. Release candidate `v0.1.0-rc.1` is published. The project is now in post-release productization.
+
+## Post-release Milestone 7 — Operator workflow parity
+
+Goal: expose every supported scenario through the same local operator experience, persistence model, report exports, and browser proof.
+
+### 7.1 Resource-assignment operator workflow — in progress
+
+Deliverables:
+
+- redacted resource-assignment form;
+- persisted `RA-001` analysis through the API;
+- investigation history and report exports;
+- scenario identity visible in history;
+- browser proof preserving the Conditional Access workflow.
+
+Exit proof:
+
+- missing assignment evidence produces the expected `RA-001` finding in the browser;
+- the investigation is persisted with `RA-001@1.0.0` history;
+- JSON and Markdown reports export successfully;
+- Conditional Access browser proof remains green.
+
+### 7.2 Guest/B2B operator workflow — next
+
+Deliverables:
+
+- invitation, redemption, tenant restriction, and resource-assignment inputs remain distinct;
+- persisted guest/B2B analysis and report export;
+- browser proof for safe non-actions.
+
+### 7.3 Operator usability and release polish
+
+Deliverables:
+
+- scenario navigation and clearer result summaries;
+- validation guidance and empty/error states;
+- refreshed screenshots, demo guide, and release notes;
+- stable `v0.1.0` release after controlled review.
