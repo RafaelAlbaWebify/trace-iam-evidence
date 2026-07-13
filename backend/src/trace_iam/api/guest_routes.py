@@ -55,7 +55,18 @@ def analyze_guest_b2b(
     request: GuestB2BRequest,
     repository: InvestigationRepository = Depends(get_repository),
 ) -> GuestB2BResponse:
-    evidence = ManualGuestB2BEvidence(**request.model_dump())
+    evidence = ManualGuestB2BEvidence(
+        evidence_id=request.evidence_id,
+        source=request.source,
+        guest_subject=request.guest_subject,
+        resource=request.resource,
+        invitation_sent=request.invitation_sent,
+        invitation_redeemed=request.invitation_redeemed,
+        tenant_restriction_observed=request.tenant_restriction_observed,
+        resource_assignment_present=request.resource_assignment_present,
+        restriction_detail=request.restriction_detail,
+        redacted=request.redacted,
+    )
     item, facts = normalize_guest_b2b_evidence(evidence)
     investigation = Investigation(
         id=request.investigation_id,
