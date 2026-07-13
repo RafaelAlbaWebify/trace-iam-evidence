@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from trace_iam.api.app import app
+from trace_iam.main import app
 
 
 client = TestClient(app)
