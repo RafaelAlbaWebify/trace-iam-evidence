@@ -2,15 +2,15 @@
 
 TRACE IAM Evidence is a local-first, read-only IAM and access-support investigation workbench. It structures redacted evidence, evaluates deterministic versioned rules, records uncertainty and limitations, generates reviewable Markdown and JSON reports, and preserves immutable local investigation history.
 
-## Verified release scope
+## Stable release scope
 
-The portfolio release supports three public-safe investigation scenarios:
+TRACE supports three public-safe operator workflows in the browser:
 
-1. **Conditional Access** — structured manual evidence and a documented redacted Entra sign-in CSV contract.
+1. **Conditional Access** — documented redacted Entra sign-in CSV evidence.
 2. **Resource assignment** — evidence-supported review of a missing subject-to-resource assignment.
 3. **Guest and B2B lifecycle** — distinct invitation, redemption, tenant-restriction, and resource-assignment evidence.
 
-The browser workflow currently demonstrates Conditional Access analysis, persisted history, report export, archive, and reopen. Resource-assignment and guest/B2B workflows are available through the tested backend contracts and API.
+Every workflow uses the same local persistence, immutable analysis history, JSON and Markdown exports, archive/reopen behavior, and browser acceptance proof.
 
 ## What TRACE proves
 
@@ -20,8 +20,9 @@ The browser workflow currently demonstrates Conditional Access analysis, persist
 - Safe recommended checks and explicit non-actions.
 - Alembic-managed SQLite persistence and immutable analysis runs.
 - JSON and Markdown report generation and export.
+- Accessible scenario navigation, validation guidance, loading states, and readable API errors.
 - Ubuntu and Windows lint, strict type checking, tests, and frontend builds.
-- Chromium browser acceptance proof with generated reports, logs, and screenshots.
+- Chromium browser acceptance proof for all three supported scenarios.
 - Reproducible public-safe release proof with SHA-256 manifest.
 
 ## Safety boundary
@@ -33,6 +34,8 @@ The browser workflow currently demonstrates Conditional Access analysis, persist
 - No recommendation to disable Conditional Access globally or weaken cross-tenant controls.
 - No root-cause claim without sufficient supporting evidence.
 - Every finding exposes its rule identity, evidence basis, limitations, and uncertainty.
+
+Before using TRACE, replace real names, email addresses, tenant IDs, object IDs, tokens, and confidential resource names with non-identifying placeholders.
 
 ## Quick start
 
@@ -58,6 +61,8 @@ npm --prefix frontend run dev -- --host 127.0.0.1 --port 4173
 
 Open `http://127.0.0.1:4173`.
 
+The operator interface includes public-safe defaults for demonstration. Use the scenario guidance before replacing them with your own redacted evidence.
+
 ## Rebuild the release proof
 
 From the `backend` directory:
@@ -73,7 +78,7 @@ The generated pack contains one JSON report and one Markdown report per scenario
 ## Documentation
 
 - [Architecture diagram](docs/architecture-diagram.md)
-- [Setup and demo](docs/setup-and-demo.md)
+- [Setup and three-scenario demo](docs/setup-and-demo.md)
 - [Known limitations](docs/known-limitations.md)
 - [Roadmap](docs/roadmap.md)
 - [Release notes](CHANGELOG.md)
