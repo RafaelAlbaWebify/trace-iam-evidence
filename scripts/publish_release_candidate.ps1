@@ -27,6 +27,48 @@ function Invoke-Git {
     }
 }
 
+function Get-GitText {
+    param(
+        [Parameter(Mandatory)]
+        [string[]]$Arguments,
+
+        [Parameter()]
+        [switch]$AllowEmpty
+    )
+
+    $outputLines = @(& git -C $script:RepoRoot @Arguments 2>$null) |
+        Where-Object { $null -ne $_ }
+    $exitCode = $LASTEXITCODE
+
+    if ($exitCode -ne 0) {
+        throw "Git command failed: git -C `"$script:RepoRoot`" $($Arguments -join ' ')"
+    }
+
+    $text = [string]::Join("`n", [string[]]$outputLines).Trim()
+    if (-not $AllowEmpty -and [string]::IsNullOrWhiteSpace($text)) {
+        throw "Git command returned no output: git -C `"$script:RepoRoot`" $($Arguments -join ' ')"
+    }
+
+    return $text
+}
+
+function Get-GitLines {
+    param(
+        [Parameter(Mandatory)]
+        [string[]]$Arguments
+    )
+
+    $outputLines = @(& git -C $script:RepoRoot @Arguments 2>$null) |
+        Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }
+    $exitCode = $LASTEXITCODE
+
+    if ($exitCode -ne 0) {
+        throw "Git command failed: git -C `"$script:RepoRoot`" $($Arguments -join ' ')"
+    }
+
+    return [string[]]$outputLines
+}
+
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     throw 'Git is not installed or is not available in PATH.'
 }
@@ -38,10 +80,7 @@ if (-not (Test-Path (Join-Path $script:RepoRoot '.git'))) {
     throw "Repository metadata was not found at '$script:RepoRoot'."
 }
 
-$remoteUrl = (& git -C $script:RepoRoot remote get-url $Remote 2>$null)
-if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($remoteUrl)) {
-    throw "Git remote '$Remote' is not configured for '$script:RepoRoot'."
-}
+$remoteUrl = Get-GitText -Arguments @('remote', 'get-url', $Remote)
 
 Write-Host "Repository: $script:RepoRoot"
 Write-Host "Remote:     $Remote ($remoteUrl)"
@@ -50,47 +89,49 @@ Write-Host "Commit:     $Commit"
 
 Invoke-Git -Arguments @('fetch', '--prune', '--tags', $Remote)
 
-$workingTree = (& git -C $script:RepoRoot status --porcelain)
-if ($LASTEXITCODE -ne 0) {
-    throw 'Unable to inspect the working tree.'
-}
-if ($workingTree) {
+$workingTree = Get-GitText -Arguments @('status', '--porcelain') -AllowEmpty
+if (-not [string]::IsNullOrWhiteSpace($workingTree)) {
     throw 'The repository has uncommitted changes. Commit or stash them before publishing a release tag.'
 }
 
 Invoke-Git -Arguments @('checkout', 'main')
 Invoke-Git -Arguments @('pull', '--ff-only', $Remote, 'main')
 
-$resolvedCommit = (& git -C $script:RepoRoot rev-parse --verify "$Commit^{commit}").Trim()
-if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($resolvedCommit)) {
-    throw "Release commit '$Commit' does not exist in the local repository."
-}
+$resolvedCommit = Get-GitText -Arguments @('rev-parse', '--verify', "$Commit^{commit}")
 
 & git -C $script:RepoRoot merge-base --is-ancestor $resolvedCommit "$Remote/main"
 if ($LASTEXITCODE -ne 0) {
     throw "Release commit '$resolvedCommit' is not an ancestor of '$Remote/main'. Refusing to publish an unrelated tag."
 }
 
-$localTag = (& git -C $script:RepoRoot tag --list $Tag).Trim()
-if ($LASTEXITCODE -ne 0) {
-    throw "Unable to inspect local tag '$Tag'."
-}
-if ($localTag) {
-    $localTarget = (& git -C $script:RepoRoot rev-list -n 1 $Tag).Trim()
+$localTag = Get-GitText -Arguments @('tag', '--list', $Tag) -AllowEmpty
+if (-not [string]::IsNullOrWhiteSpace($localTag)) {
+    $localTarget = Get-GitText -Arguments @('rev-list', '-n', '1', $Tag)
     if ($localTarget -ne $resolvedCommit) {
         throw "Local tag '$Tag' already points to '$localTarget', not '$resolvedCommit'."
     }
     Write-Host "Local tag '$Tag' already points to the expected commit."
 }
 
-$remoteLines = @(& git -C $script:RepoRoot ls-remote --tags $Remote "refs/tags/$Tag" "refs/tags/$Tag^{}")
-if ($LASTEXITCODE -ne 0) {
-    throw "Unable to inspect remote tag '$Tag'."
-}
+$remoteLines = Get-GitLines -Arguments @(
+    'ls-remote',
+    '--tags',
+    $Remote,
+    "refs/tags/$Tag",
+    "refs/tags/$Tag^{}"
+)
 if ($remoteLines.Count -gt 0) {
-    $peeledLine = $remoteLines | Where-Object { $_ -match "refs/tags/$([regex]::Escape($Tag))\^\{\}$" } | Select-Object -First 1
-    $selectedLine = if ($peeledLine) { $peeledLine } else { $remoteLines | Select-Object -First 1 }
-    $remoteTarget = ($selectedLine -split '\s+')[0]
+    $escapedTag = [regex]::Escape($Tag)
+    $peeledLine = $remoteLines |
+        Where-Object { $_ -match "refs/tags/$escapedTag\^\{\}$" } |
+        Select-Object -First 1
+    $selectedLine = if ($peeledLine) {
+        $peeledLine
+    }
+    else {
+        $remoteLines | Select-Object -First 1
+    }
+    $remoteTarget = ([string]$selectedLine -split '\s+')[0]
     if ($remoteTarget -ne $resolvedCommit) {
         throw "Remote tag '$Tag' already points to '$remoteTarget', not '$resolvedCommit'."
     }
@@ -98,7 +139,7 @@ if ($remoteLines.Count -gt 0) {
     exit 0
 }
 
-if (-not $localTag) {
+if ([string]::IsNullOrWhiteSpace($localTag)) {
     if ($PSCmdlet.ShouldProcess($resolvedCommit, "Create annotated tag $Tag")) {
         Invoke-Git -Arguments @('tag', '-a', $Tag, $resolvedCommit, '-m', "TRACE IAM Evidence $Tag")
     }
