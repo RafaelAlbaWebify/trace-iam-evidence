@@ -11,7 +11,8 @@ dist/
 playwright-report/
 test-results/
 
-# TRACE local runtime data
+# TRACE generated and runtime data
+release-proof/
 *.db
 *.db-shm
 *.db-wal

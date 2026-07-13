@@ -1,0 +1,13 @@
+{
+  "scenario_type": "conditional_access",
+  "investigation_id": "release-ca-001",
+  "title": "Conditional Access device compliance review",
+  "evidence": {
+    "evidence_id": "release-ca-evidence-001",
+    "source": "public-safe release fixture",
+    "conditional_access_failed": true,
+    "conditional_access_succeeded": false,
+    "policy_name": "Require compliant device",
+    "redacted": true
+  }
+}
