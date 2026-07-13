@@ -136,7 +136,7 @@ Exit proof:
 
 ## Current status
 
-Milestones 0–6 and Post-release Milestone 7.1 are complete. Release candidate `v0.1.0-rc.1` is published. Post-release Milestone 7.2 is in progress.
+Milestones 0–6 and Post-release Milestones 7.1–7.2 are complete. Release candidate `v0.1.0-rc.1` is published. Post-release Milestone 7.3 is in progress.
 
 ## Post-release Milestone 7 — Operator workflow parity
 
@@ -159,7 +159,7 @@ Exit proof:
 - JSON and Markdown reports export successfully;
 - Conditional Access browser proof remains green.
 
-### 7.2 Guest/B2B operator workflow — in progress
+### 7.2 Guest/B2B operator workflow — complete
 
 Deliverables:
 
@@ -174,11 +174,30 @@ Exit proof:
 - JSON and Markdown reports export successfully;
 - Conditional Access and resource-assignment browser proof remain green.
 
-### 7.3 Operator usability and release polish
+### 7.3 Operator usability and release polish — in progress
+
+#### 7.3.1 Scenario navigation and result presentation
 
 Deliverables:
 
-- scenario navigation and clearer result summaries;
-- validation guidance and empty/error states;
-- refreshed screenshots, demo guide, and release notes;
+- compact navigation to every supported workflow and history;
+- visually distinct scenario panels without changing backend contracts;
+- accessible analysis summary for run, finding count, and evaluated rules;
+- preserved detailed evidence report and safe non-actions;
+- responsive operator layout and refreshed browser screenshots.
+
+Exit proof:
+
+- all scenario navigation targets are keyboard-accessible;
+- all three browser workflows retain persistence and report exports;
+- result summary and detailed evidence report are both visible in browser proof;
+- Ubuntu, Windows, release-publisher, and release-pack gates remain green.
+
+#### 7.3.2 Validation guidance and release preparation
+
+Deliverables:
+
+- scenario-specific validation guidance and clearer API errors;
+- improved loading, empty-history, and failure states;
+- refreshed README, demo guide, screenshots, and release notes;
 - stable `v0.1.0` release after controlled review.

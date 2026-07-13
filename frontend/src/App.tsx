@@ -1,5 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 
+import "./App.css";
+
 const SAMPLE_CSV = `Sign-in ID,Conditional Access Status,Failure Reason,Conditional Access Policy
 signin-001,failure,Device is not compliant,Require compliant device`;
 
@@ -32,9 +34,7 @@ type AnalysisRun = {
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, init);
   const payload = await response.json();
-  if (!response.ok) {
-    throw new Error(payload.detail ?? "Request failed");
-  }
+  if (!response.ok) throw new Error(payload.detail ?? "Request failed");
   return payload as T;
 }
 
@@ -61,14 +61,11 @@ export function App() {
 
   async function refreshHistory(showArchived = includeArchived) {
     const query = showArchived ? "?include_archived=true" : "";
-    const items = await api<InvestigationSummary[]>(`/api/investigations${query}`);
-    setInvestigations(items);
+    setInvestigations(await api<InvestigationSummary[]>(`/api/investigations${query}`));
   }
 
   useEffect(() => {
-    refreshHistory().catch((caught) => {
-      setError(caught instanceof Error ? caught.message : "History failed to load");
-    });
+    refreshHistory().catch((caught) => setError(caught instanceof Error ? caught.message : "History failed to load"));
   }, []);
 
   async function completeAnalysis(payload: AnalysisResponse) {
@@ -76,6 +73,7 @@ export function App() {
     setSelectedId(payload.investigation_id);
     await refreshHistory();
     setRuns(await api<AnalysisRun[]>(`/api/investigations/${payload.investigation_id}/runs`));
+    document.getElementById("analysis-result")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   function beginAnalysis() {
@@ -84,108 +82,56 @@ export function App() {
     setResult(null);
   }
 
-  function finishAnalysis() {
-    setLoading(false);
+  async function runAnalysis(path: string, body: Record<string, unknown>) {
+    beginAnalysis();
+    try {
+      await completeAnalysis(await api<AnalysisResponse>(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      }));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Analysis failed");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function submitConditionalAccess(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    beginAnalysis();
-    try {
-      const payload = await api<AnalysisResponse>(
-        "/api/investigations/analyze-conditional-access-csv",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            investigation_id: "browser-ca-001",
-            title: "Conditional Access sign-in review",
-            source: "public-safe browser sample",
-            csv_text: csvText
-          })
-        }
-      );
-      await completeAnalysis(payload);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Analysis failed");
-    } finally {
-      finishAnalysis();
-    }
+    await runAnalysis("/api/investigations/analyze-conditional-access-csv", {
+      investigation_id: "browser-ca-001", title: "Conditional Access sign-in review",
+      source: "public-safe browser sample", csv_text: csvText
+    });
   }
 
   async function submitResourceAssignment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    beginAnalysis();
-    try {
-      const payload = await api<AnalysisResponse>(
-        "/api/investigations/analyze-resource-assignment",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            investigation_id: "browser-ra-001",
-            title: "Resource assignment review",
-            evidence_id: "browser-ra-evidence-001",
-            source: "public-safe browser sample",
-            subject: assignmentSubject,
-            resource: assignmentResource,
-            access_failed: true,
-            assignment_required: true,
-            assignment_present: assignmentPresent,
-            assignment_name: assignmentName || null,
-            redacted: true
-          })
-        }
-      );
-      await completeAnalysis(payload);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Analysis failed");
-    } finally {
-      finishAnalysis();
-    }
+    await runAnalysis("/api/investigations/analyze-resource-assignment", {
+      investigation_id: "browser-ra-001", title: "Resource assignment review",
+      evidence_id: "browser-ra-evidence-001", source: "public-safe browser sample",
+      subject: assignmentSubject, resource: assignmentResource, access_failed: true,
+      assignment_required: true, assignment_present: assignmentPresent,
+      assignment_name: assignmentName || null, redacted: true
+    });
   }
 
   async function submitGuestB2B(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    beginAnalysis();
-    try {
-      const payload = await api<AnalysisResponse>(
-        "/api/investigations/analyze-guest-b2b",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            investigation_id: "browser-gb-001",
-            title: "Guest B2B lifecycle review",
-            evidence_id: "browser-gb-evidence-001",
-            source: "public-safe browser sample",
-            guest_subject: guestSubject,
-            resource: guestResource,
-            invitation_sent: invitationSent,
-            invitation_redeemed: invitationRedeemed,
-            tenant_restriction_observed: tenantRestrictionObserved,
-            resource_assignment_present: guestAssignmentPresent,
-            restriction_detail: restrictionDetail || null,
-            redacted: true
-          })
-        }
-      );
-      await completeAnalysis(payload);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Analysis failed");
-    } finally {
-      finishAnalysis();
-    }
+    await runAnalysis("/api/investigations/analyze-guest-b2b", {
+      investigation_id: "browser-gb-001", title: "Guest B2B lifecycle review",
+      evidence_id: "browser-gb-evidence-001", source: "public-safe browser sample",
+      guest_subject: guestSubject, resource: guestResource, invitation_sent: invitationSent,
+      invitation_redeemed: invitationRedeemed, tenant_restriction_observed: tenantRestrictionObserved,
+      resource_assignment_present: guestAssignmentPresent, restriction_detail: restrictionDetail || null,
+      redacted: true
+    });
   }
 
   async function loadHistory(investigationId: string) {
-    setError("");
-    setSelectedId(investigationId);
-    try {
-      setRuns(await api<AnalysisRun[]>(`/api/investigations/${investigationId}/runs`));
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "History failed to load");
-    }
+    setError(""); setSelectedId(investigationId);
+    try { setRuns(await api<AnalysisRun[]>(`/api/investigations/${investigationId}/runs`)); }
+    catch (caught) { setError(caught instanceof Error ? caught.message : "History failed to load"); }
   }
 
   async function changeArchiveState(investigationId: string, action: "archive" | "reopen") {
@@ -193,34 +139,33 @@ export function App() {
     try {
       await api(`/api/investigations/${investigationId}/${action}`, { method: "POST" });
       await refreshHistory();
-      if (!includeArchived && action === "archive") {
-        setSelectedId("");
-        setRuns([]);
-      }
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "History update failed");
-    }
+      if (!includeArchived && action === "archive") { setSelectedId(""); setRuns([]); }
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "History update failed"); }
   }
 
   async function toggleArchived() {
-    const next = !includeArchived;
-    setIncludeArchived(next);
-    setSelectedId("");
-    setRuns([]);
-    try {
-      await refreshHistory(next);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "History failed to load");
-    }
+    const next = !includeArchived; setIncludeArchived(next); setSelectedId(""); setRuns([]);
+    try { await refreshHistory(next); }
+    catch (caught) { setError(caught instanceof Error ? caught.message : "History failed to load"); }
   }
 
   return (
-    <main>
-      <p>Local-first IAM evidence investigation workbench</p>
-      <h1>TRACE IAM Evidence</h1>
+    <main className="app-shell">
+      <header className="hero">
+        <p className="eyebrow">Local-first IAM evidence investigation workbench</p>
+        <h1>TRACE IAM Evidence</h1>
+        <p>Choose a supported evidence workflow, run deterministic rules, and retain a reviewable local history.</p>
+      </header>
 
-      <section aria-labelledby="workflow-title">
-        <h2 id="workflow-title">Conditional Access evidence review</h2>
+      <nav className="scenario-nav" aria-label="Evidence scenarios">
+        <a href="#conditional-access">Conditional Access<span>CSV sign-in evidence</span></a>
+        <a href="#resource-assignment">Resource assignment<span>Entitlement evidence</span></a>
+        <a href="#guest-b2b">Guest / B2B<span>Lifecycle evidence</span></a>
+        <a href="#history">History<span>Runs and exports</span></a>
+      </nav>
+
+      <section id="conditional-access" className="workflow-card" aria-labelledby="workflow-title">
+        <div className="section-heading"><span>Scenario 01</span><h2 id="workflow-title">Conditional Access evidence review</h2></div>
         <p>Paste only redacted CSV evidence matching the documented four-column contract.</p>
         <form onSubmit={submitConditionalAccess}>
           <label htmlFor="csv-evidence">Redacted Entra sign-in CSV</label>
@@ -229,8 +174,8 @@ export function App() {
         </form>
       </section>
 
-      <section aria-labelledby="assignment-workflow-title">
-        <h2 id="assignment-workflow-title">Resource assignment evidence review</h2>
+      <section id="resource-assignment" className="workflow-card" aria-labelledby="assignment-workflow-title">
+        <div className="section-heading"><span>Scenario 02</span><h2 id="assignment-workflow-title">Resource assignment evidence review</h2></div>
         <p>Record redacted evidence about a failed access attempt and the expected assignment.</p>
         <form onSubmit={submitResourceAssignment}>
           <label htmlFor="assignment-subject">Redacted subject</label>
@@ -239,72 +184,68 @@ export function App() {
           <input id="assignment-resource" value={assignmentResource} onChange={(event) => setAssignmentResource(event.target.value)} required />
           <label htmlFor="assignment-name">Expected assignment</label>
           <input id="assignment-name" value={assignmentName} onChange={(event) => setAssignmentName(event.target.value)} />
-          <label><input type="checkbox" checked={assignmentPresent} onChange={(event) => setAssignmentPresent(event.target.checked)} />Assignment is present in supplied evidence</label>
+          <label className="check-row"><input type="checkbox" checked={assignmentPresent} onChange={(event) => setAssignmentPresent(event.target.checked)} />Assignment is present in supplied evidence</label>
           <button type="submit" disabled={loading}>{loading ? "Analyzing…" : "Analyze resource assignment"}</button>
         </form>
       </section>
 
-      <section aria-labelledby="guest-workflow-title">
-        <h2 id="guest-workflow-title">Guest B2B lifecycle evidence review</h2>
+      <section id="guest-b2b" className="workflow-card" aria-labelledby="guest-workflow-title">
+        <div className="section-heading"><span>Scenario 03</span><h2 id="guest-workflow-title">Guest B2B lifecycle evidence review</h2></div>
         <p>Keep invitation, redemption, tenant restriction, and resource assignment evidence distinct.</p>
         <form onSubmit={submitGuestB2B}>
           <label htmlFor="guest-subject">Redacted guest subject</label>
           <input id="guest-subject" value={guestSubject} onChange={(event) => setGuestSubject(event.target.value)} required />
           <label htmlFor="guest-resource">Guest resource</label>
           <input id="guest-resource" value={guestResource} onChange={(event) => setGuestResource(event.target.value)} required />
-          <label><input type="checkbox" checked={invitationSent} onChange={(event) => setInvitationSent(event.target.checked)} />Invitation was sent</label>
-          <label><input type="checkbox" checked={invitationRedeemed} onChange={(event) => setInvitationRedeemed(event.target.checked)} />Invitation was redeemed</label>
-          <label><input type="checkbox" checked={tenantRestrictionObserved} onChange={(event) => setTenantRestrictionObserved(event.target.checked)} />Tenant restriction was observed</label>
-          <label><input type="checkbox" checked={guestAssignmentPresent} onChange={(event) => setGuestAssignmentPresent(event.target.checked)} />Resource assignment is present</label>
+          <div className="check-grid">
+            <label><input type="checkbox" checked={invitationSent} onChange={(event) => setInvitationSent(event.target.checked)} />Invitation was sent</label>
+            <label><input type="checkbox" checked={invitationRedeemed} onChange={(event) => setInvitationRedeemed(event.target.checked)} />Invitation was redeemed</label>
+            <label><input type="checkbox" checked={tenantRestrictionObserved} onChange={(event) => setTenantRestrictionObserved(event.target.checked)} />Tenant restriction was observed</label>
+            <label><input type="checkbox" checked={guestAssignmentPresent} onChange={(event) => setGuestAssignmentPresent(event.target.checked)} />Resource assignment is present</label>
+          </div>
           <label htmlFor="restriction-detail">Redacted restriction detail</label>
           <input id="restriction-detail" value={restrictionDetail} onChange={(event) => setRestrictionDetail(event.target.value)} />
           <button type="submit" disabled={loading}>{loading ? "Analyzing…" : "Analyze Guest B2B evidence"}</button>
         </form>
       </section>
 
-      {error && <p role="alert">{error}</p>}
+      {error && <p className="alert" role="alert">{error}</p>}
       {result && (
-        <section aria-labelledby="result-title">
-          <h2 id="result-title">Analysis result</h2>
-          <p><strong>Run:</strong> {result.run_number}</p>
-          <p><strong>Findings:</strong> {result.finding_count}</p>
-          <p><strong>Rules evaluated:</strong> {result.evaluated_rule_ids.join(", ")}</p>
-          <pre data-testid="markdown-report">{result.markdown_report}</pre>
+        <section id="analysis-result" className="result-panel" aria-labelledby="result-title">
+          <div className="section-heading"><span>Evidence outcome</span><h2 id="result-title">Analysis result</h2></div>
+          <div className="result-summary" aria-label="Analysis summary">
+            <article><span>Run</span><strong>{result.run_number}</strong></article>
+            <article><span>Findings</span><strong>{result.finding_count}</strong></article>
+            <article><span>Rules evaluated</span><strong>{result.evaluated_rule_ids.join(", ")}</strong></article>
+          </div>
+          <details open>
+            <summary>Evidence report and safe next checks</summary>
+            <pre data-testid="markdown-report">{result.markdown_report}</pre>
+          </details>
         </section>
       )}
 
-      <section aria-labelledby="history-title">
-        <h2 id="history-title">Investigation history</h2>
-        <label><input type="checkbox" checked={includeArchived} onChange={toggleArchived} />Show archived investigations</label>
-        {investigations.length === 0 ? (
-          <p>No persisted investigations yet.</p>
-        ) : (
-          <ul>
-            {investigations.map((item) => (
-              <li key={item.investigation_id}>
-                <button type="button" onClick={() => loadHistory(item.investigation_id)}>{item.title}</button>
-                <span> — {item.status}, {item.analysis_run_count} run(s)</span>
-                <small> ({item.scenario_type})</small>
-                <button type="button" onClick={() => changeArchiveState(item.investigation_id, item.status === "archived" ? "reopen" : "archive")}>
-                  {item.status === "archived" ? "Reopen" : "Archive"}
-                </button>
-              </li>
-            ))}
-          </ul>
+      <section id="history" className="history-panel" aria-labelledby="history-title">
+        <div className="section-heading"><span>Local evidence record</span><h2 id="history-title">Investigation history</h2></div>
+        <label className="check-row"><input type="checkbox" checked={includeArchived} onChange={toggleArchived} />Show archived investigations</label>
+        {investigations.length === 0 ? <p className="empty-state">No persisted investigations yet.</p> : (
+          <ul className="history-list">{investigations.map((item) => (
+            <li key={item.investigation_id}>
+              <button type="button" onClick={() => loadHistory(item.investigation_id)}>{item.title}</button>
+              <span>{item.status} · {item.analysis_run_count} run(s)</span><small>{item.scenario_type}</small>
+              <button type="button" className="secondary" onClick={() => changeArchiveState(item.investigation_id, item.status === "archived" ? "reopen" : "archive")}>{item.status === "archived" ? "Reopen" : "Archive"}</button>
+            </li>
+          ))}</ul>
         )}
-
         {selectedId && (
-          <section aria-labelledby="runs-title">
+          <section className="runs-panel" aria-labelledby="runs-title">
             <h3 id="runs-title">Analysis runs for {selectedId}</h3>
-            <ul>
-              {runs.map((run) => (
-                <li key={run.run_number}>
-                  <strong>Run {run.run_number}</strong> — {run.ruleset_version}, {run.finding_count} finding(s){" "}
-                  <a href={`/api/investigations/${selectedId}/runs/${run.run_number}/report.json`}>Export JSON</a>{" · "}
-                  <a href={`/api/investigations/${selectedId}/runs/${run.run_number}/report.md`}>Export Markdown</a>
-                </li>
-              ))}
-            </ul>
+            <ul>{runs.map((run) => (
+              <li key={run.run_number}><strong>Run {run.run_number}</strong> — {run.ruleset_version}, {run.finding_count} finding(s){" "}
+                <a href={`/api/investigations/${selectedId}/runs/${run.run_number}/report.json`}>Export JSON</a>{" · "}
+                <a href={`/api/investigations/${selectedId}/runs/${run.run_number}/report.md`}>Export Markdown</a>
+              </li>
+            ))}</ul>
           </section>
         )}
       </section>
