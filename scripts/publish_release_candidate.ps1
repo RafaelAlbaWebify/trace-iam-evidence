@@ -31,7 +31,7 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     throw 'Git is not installed or is not available in PATH.'
 }
 
-# The script lives in <repo>/scripts, so its parent directory is always the repository root.
+# Every repository script must resolve paths from its own file location, never from the caller's current directory.
 $script:RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 
 if (-not (Test-Path (Join-Path $script:RepoRoot '.git'))) {
@@ -48,7 +48,7 @@ Write-Host "Remote:     $Remote ($remoteUrl)"
 Write-Host "Tag:        $Tag"
 Write-Host "Commit:     $Commit"
 
-Invoke-Git -Arguments @('fetch', '--prune', $Remote)
+Invoke-Git -Arguments @('fetch', '--prune', '--tags', $Remote)
 
 $workingTree = (& git -C $script:RepoRoot status --porcelain)
 if ($LASTEXITCODE -ne 0) {
@@ -60,14 +60,15 @@ if ($workingTree) {
 
 Invoke-Git -Arguments @('checkout', 'main')
 Invoke-Git -Arguments @('pull', '--ff-only', $Remote, 'main')
-Invoke-Git -Arguments @('rev-parse', '--verify', "$Commit^{commit}")
 
-$mainCommit = (& git -C $script:RepoRoot rev-parse HEAD).Trim()
-if ($LASTEXITCODE -ne 0) {
-    throw 'Unable to resolve the current main commit.'
+$resolvedCommit = (& git -C $script:RepoRoot rev-parse --verify "$Commit^{commit}").Trim()
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($resolvedCommit)) {
+    throw "Release commit '$Commit' does not exist in the local repository."
 }
-if ($mainCommit -ne $Commit) {
-    throw "Main is at '$mainCommit', not the expected release commit '$Commit'. Refusing to tag a different commit."
+
+& git -C $script:RepoRoot merge-base --is-ancestor $resolvedCommit "$Remote/main"
+if ($LASTEXITCODE -ne 0) {
+    throw "Release commit '$resolvedCommit' is not an ancestor of '$Remote/main'. Refusing to publish an unrelated tag."
 }
 
 $localTag = (& git -C $script:RepoRoot tag --list $Tag).Trim()
@@ -76,34 +77,36 @@ if ($LASTEXITCODE -ne 0) {
 }
 if ($localTag) {
     $localTarget = (& git -C $script:RepoRoot rev-list -n 1 $Tag).Trim()
-    if ($localTarget -ne $Commit) {
-        throw "Local tag '$Tag' already points to '$localTarget', not '$Commit'."
+    if ($localTarget -ne $resolvedCommit) {
+        throw "Local tag '$Tag' already points to '$localTarget', not '$resolvedCommit'."
     }
     Write-Host "Local tag '$Tag' already points to the expected commit."
 }
 
-$remoteTag = (& git -C $script:RepoRoot ls-remote --tags $Remote "refs/tags/$Tag").Trim()
+$remoteLines = @(& git -C $script:RepoRoot ls-remote --tags $Remote "refs/tags/$Tag" "refs/tags/$Tag^{}")
 if ($LASTEXITCODE -ne 0) {
     throw "Unable to inspect remote tag '$Tag'."
 }
-if ($remoteTag) {
-    $remoteTarget = ($remoteTag -split '\s+')[0]
-    if ($remoteTarget -ne $Commit) {
-        throw "Remote tag '$Tag' already points to '$remoteTarget', not '$Commit'."
+if ($remoteLines.Count -gt 0) {
+    $peeledLine = $remoteLines | Where-Object { $_ -match "refs/tags/$([regex]::Escape($Tag))\^\{\}$" } | Select-Object -First 1
+    $selectedLine = if ($peeledLine) { $peeledLine } else { $remoteLines | Select-Object -First 1 }
+    $remoteTarget = ($selectedLine -split '\s+')[0]
+    if ($remoteTarget -ne $resolvedCommit) {
+        throw "Remote tag '$Tag' already points to '$remoteTarget', not '$resolvedCommit'."
     }
     Write-Host "Remote tag '$Tag' already exists at the expected commit. Nothing to publish."
     exit 0
 }
 
 if (-not $localTag) {
-    if ($PSCmdlet.ShouldProcess("$Commit", "Create annotated tag $Tag")) {
-        Invoke-Git -Arguments @('tag', '-a', $Tag, $Commit, '-m', "TRACE IAM Evidence $Tag")
+    if ($PSCmdlet.ShouldProcess($resolvedCommit, "Create annotated tag $Tag")) {
+        Invoke-Git -Arguments @('tag', '-a', $Tag, $resolvedCommit, '-m', "TRACE IAM Evidence $Tag")
     }
 }
 
-if ($PSCmdlet.ShouldProcess("$Remote", "Push tag $Tag")) {
+if ($PSCmdlet.ShouldProcess($Remote, "Push tag $Tag")) {
     Invoke-Git -Arguments @('push', $Remote, "refs/tags/$Tag")
 }
 
-Write-Host "Published '$Tag' at '$Commit'."
+Write-Host "Published '$Tag' at '$resolvedCommit'."
 Write-Host 'GitHub Actions tag workflows should now start automatically.'
