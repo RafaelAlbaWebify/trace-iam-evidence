@@ -30,7 +30,8 @@ jobs:
       - name: Install backend release dependencies
         run: python -m pip install -e "backend[dev]"
       - name: Install frontend release dependencies
-        run: npm --prefix frontend install --ignore-scripts
+        working-directory: frontend
+        run: npm install --ignore-scripts
       - name: Verify release builder
         working-directory: backend
         run: python -m pytest tests/test_release_proof.py -q
@@ -41,7 +42,8 @@ jobs:
           --scenarios ../examples/scenarios
           --output ../release-proof/${{ matrix.os }}
       - name: Build portfolio frontend
-        run: npm --prefix frontend run build
+        working-directory: frontend
+        run: npm run build
       - name: Record controlled platform review
         run: >-
           python -c "from pathlib import Path;
