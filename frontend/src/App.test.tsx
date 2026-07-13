@@ -8,51 +8,68 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-test("renders guidance for all supported workflows and investigation history", async () => {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => []
-    })
-  );
-
+test("requires a persisted investigation before scenario analysis", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
   render(<App />);
 
   expect(screen.getByRole("heading", { name: "TRACE IAM Evidence" })).toBeInTheDocument();
-  const navigation = screen.getByRole("navigation", { name: "Evidence scenarios" });
-  expect(navigation).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: /Conditional Access/ })).toHaveAttribute("href", "#conditional-access");
-  expect(screen.getByRole("link", { name: /Resource assignment/ })).toHaveAttribute("href", "#resource-assignment");
-  expect(screen.getByRole("link", { name: /Guest \/ B2B/ })).toHaveAttribute("href", "#guest-b2b");
-  expect(screen.getByRole("link", { name: /History/ })).toHaveAttribute("href", "#history");
-  expect(screen.getByRole("complementary", { name: "Evidence safety guidance" })).toHaveTextContent("Use redacted evidence only");
-
-  expect(screen.getByText(/exactly these headers/)).toBeInTheDocument();
-  expect(screen.getByText(/Do not paste access tokens/)).toBeInTheDocument();
-  expect(screen.getByText(/Mark assignment present only/)).toBeInTheDocument();
-  expect(screen.getByText(/Do not infer redemption/)).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Create a persisted case" })).toBeInTheDocument();
   expect(await screen.findByText("No persisted investigations yet.")).toBeInTheDocument();
-  expect(await screen.findByRole("button", { name: "Analyze evidence" })).toBeEnabled();
-  expect(screen.getByRole("button", { name: "Analyze resource assignment" })).toBeEnabled();
-  expect(screen.getByRole("button", { name: "Analyze Guest B2B evidence" })).toBeEnabled();
-  expect(screen.getByText(/Run any scenario above/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Select a Conditional Access case" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Select a resource-assignment case" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Select a Guest/B2B case" })).toBeDisabled();
+});
+
+test("creates and activates a server-generated investigation", async () => {
+  const created = {
+    investigation_id: "trace-a1b2c3d4e5f6",
+    title: "Access investigation",
+    scenario_type: "conditional_access",
+    status: "draft",
+    created_at: "2026-07-14T00:00:00Z",
+    evidence_item_count: 0,
+    analysis_run_count: 0
+  };
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce({ ok: true, json: async () => [] })
+    .mockResolvedValueOnce({ ok: true, json: async () => created })
+    .mockResolvedValueOnce({ ok: true, json: async () => [{ ...created, archived_at: null }] });
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(<App />);
+  await screen.findByText("No persisted investigations yet.");
+  fireEvent.click(screen.getByRole("button", { name: "Create investigation" }));
+
+  expect(await screen.findByText("Active investigation")).toBeInTheDocument();
+  expect(screen.getByText("trace-a1b2c3d4e5f6")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Analyze evidence" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Select a resource-assignment case" })).toBeDisabled();
 });
 
 test("renders structured API validation errors as readable operator guidance", async () => {
+  const created = {
+    investigation_id: "trace-a1b2c3d4e5f6",
+    title: "Access investigation",
+    scenario_type: "conditional_access",
+    status: "draft",
+    created_at: "2026-07-14T00:00:00Z",
+    evidence_item_count: 0,
+    analysis_run_count: 0
+  };
   const fetchMock = vi.fn()
+    .mockResolvedValueOnce({ ok: true, json: async () => [] })
+    .mockResolvedValueOnce({ ok: true, json: async () => created })
     .mockResolvedValueOnce({ ok: true, json: async () => [] })
     .mockResolvedValueOnce({
       ok: false,
       status: 422,
-      json: async () => ({
-        detail: [{ loc: ["body", "csv_text"], msg: "CSV headers do not match the documented contract" }]
-      })
+      json: async () => ({ detail: [{ loc: ["body", "csv_text"], msg: "CSV headers do not match the documented contract" }] })
     });
   vi.stubGlobal("fetch", fetchMock);
 
   render(<App />);
   await screen.findByText("No persisted investigations yet.");
+  fireEvent.click(screen.getByRole("button", { name: "Create investigation" }));
   fireEvent.click(await screen.findByRole("button", { name: "Analyze evidence" }));
 
   const alert = await screen.findByRole("alert");

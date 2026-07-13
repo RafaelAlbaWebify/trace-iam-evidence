@@ -1,9 +1,11 @@
 from dataclasses import asdict, replace
+from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field, field_validator
 
+from trace_iam.api.case_guard import require_matching_case
 from trace_iam.application import analyze
 from trace_iam.domain import AnalysisContext, Investigation, InvestigationStatus, ScenarioType
 from trace_iam.evidence import ManualGuestB2BEvidence, normalize_guest_b2b_evidence
@@ -55,6 +57,12 @@ def analyze_guest_b2b(
     request: GuestB2BRequest,
     repository: InvestigationRepository = Depends(get_repository),
 ) -> GuestB2BResponse:
+    existing = require_matching_case(
+        request.investigation_id,
+        request.title,
+        ScenarioType.GUEST_B2B,
+        repository,
+    )
     evidence = ManualGuestB2BEvidence(
         evidence_id=request.evidence_id,
         source=request.source,
@@ -75,6 +83,7 @@ def analyze_guest_b2b(
         affected_subject=request.guest_subject,
         affected_resource=request.resource,
         evidence_items=(item,),
+        created_at=existing.created_at if existing else datetime.utcnow(),
     )
     rules = (
         GuestTenantRestrictionRule(),
