@@ -5,6 +5,7 @@ from enum import StrEnum
 from typing import Any, cast
 
 from trace_iam.domain import (
+    CasePriority,
     Confidence,
     EvidenceFact,
     EvidenceItem,
@@ -60,6 +61,9 @@ def investigation_from_json(payload: str) -> Investigation:
         title=cast(str, data["title"]),
         scenario_type=ScenarioType(cast(str, data["scenario_type"])),
         status=InvestigationStatus(cast(str, data["status"])),
+        priority=CasePriority(cast(str, data.get("priority", CasePriority.NORMAL.value))),
+        external_reference=cast(str | None, data.get("external_reference")),
+        summary=cast(str | None, data.get("summary")),
         affected_subject=cast(str | None, data["affected_subject"]),
         affected_resource=cast(str | None, data["affected_resource"]),
         evidence_items=evidence_items,
