@@ -9,145 +9,198 @@ param(
     [string]$Commit = 'c343ce8f60748bb994b1ddf0114527621b9ad1cc',
 
     [Parameter()]
+    [ValidateNotNullOrEmpty()]
     [string]$Remote = 'origin'
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-function Invoke-Git {
-    param(
-        [Parameter(Mandatory)]
-        [string[]]$Arguments
-    )
-
-    & git -C $script:RepoRoot @Arguments
-    if ($LASTEXITCODE -ne 0) {
-        throw "Git command failed: git -C `"$script:RepoRoot`" $($Arguments -join ' ')"
-    }
-}
-
-function Get-GitText {
+function Invoke-GitProcess {
     param(
         [Parameter(Mandatory)]
         [string[]]$Arguments,
 
         [Parameter()]
-        [switch]$AllowEmpty
+        [switch]$AllowFailure
     )
 
-    $outputLines = @(& git -C $script:RepoRoot @Arguments 2>$null) |
-        Where-Object { $null -ne $_ }
-    $exitCode = $LASTEXITCODE
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = 'git'
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $startInfo.CreateNoWindow = $true
+    $startInfo.WorkingDirectory = $script:RepoRoot
 
-    if ($exitCode -ne 0) {
-        throw "Git command failed: git -C `"$script:RepoRoot`" $($Arguments -join ' ')"
+    foreach ($argument in $Arguments) {
+        [void]$startInfo.ArgumentList.Add($argument)
     }
 
-    $text = [string]::Join("`n", [string[]]$outputLines).Trim()
-    if (-not $AllowEmpty -and [string]::IsNullOrWhiteSpace($text)) {
-        throw "Git command returned no output: git -C `"$script:RepoRoot`" $($Arguments -join ' ')"
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $startInfo
+
+    try {
+        if (-not $process.Start()) {
+            throw 'Git process could not be started.'
+        }
+        $standardOutput = $process.StandardOutput.ReadToEnd()
+        $standardError = $process.StandardError.ReadToEnd()
+        $process.WaitForExit()
+    }
+    finally {
+        $process.Dispose()
     }
 
-    return $text
+    $result = [pscustomobject]@{
+        ExitCode = $process.ExitCode
+        StdOut   = if ($null -eq $standardOutput) { '' } else { $standardOutput.Trim() }
+        StdErr   = if ($null -eq $standardError) { '' } else { $standardError.Trim() }
+        Command  = "git $($Arguments -join ' ')"
+    }
+
+    if (-not $AllowFailure -and $result.ExitCode -ne 0) {
+        $detail = if ([string]::IsNullOrWhiteSpace($result.StdErr)) {
+            "exit code $($result.ExitCode)"
+        }
+        else {
+            $result.StdErr
+        }
+        throw "Git command failed: $($result.Command)`n$detail"
+    }
+
+    return $result
 }
 
-function Get-GitLines {
+function Write-GitOutput {
     param(
         [Parameter(Mandatory)]
-        [string[]]$Arguments
+        [pscustomobject]$Result
     )
 
-    $outputLines = @(& git -C $script:RepoRoot @Arguments 2>$null) |
-        Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }
-    $exitCode = $LASTEXITCODE
-
-    if ($exitCode -ne 0) {
-        throw "Git command failed: git -C `"$script:RepoRoot`" $($Arguments -join ' ')"
+    if (-not [string]::IsNullOrWhiteSpace($Result.StdOut)) {
+        Write-Host $Result.StdOut
     }
-
-    return [string[]]$outputLines
+    if (-not [string]::IsNullOrWhiteSpace($Result.StdErr)) {
+        Write-Host $Result.StdErr
+    }
 }
 
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     throw 'Git is not installed or is not available in PATH.'
 }
 
-# Every repository script must resolve paths from its own file location, never from the caller's current directory.
+# Repository scripts resolve every path from their own location, never from the caller's current directory.
 $script:RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 
 if (-not (Test-Path (Join-Path $script:RepoRoot '.git'))) {
     throw "Repository metadata was not found at '$script:RepoRoot'."
 }
 
-$remoteUrl = Get-GitText -Arguments @('remote', 'get-url', $Remote)
+$remoteResult = Invoke-GitProcess -Arguments @('remote', 'get-url', $Remote)
+if ([string]::IsNullOrWhiteSpace($remoteResult.StdOut)) {
+    throw "Git remote '$Remote' has no configured URL."
+}
 
 Write-Host "Repository: $script:RepoRoot"
-Write-Host "Remote:     $Remote ($remoteUrl)"
+Write-Host "Remote:     $Remote ($($remoteResult.StdOut))"
 Write-Host "Tag:        $Tag"
 Write-Host "Commit:     $Commit"
 
-Invoke-Git -Arguments @('fetch', '--prune', '--tags', $Remote)
+$fetchResult = Invoke-GitProcess -Arguments @('fetch', '--prune', '--tags', $Remote)
+Write-GitOutput -Result $fetchResult
 
-$workingTree = Get-GitText -Arguments @('status', '--porcelain') -AllowEmpty
-if (-not [string]::IsNullOrWhiteSpace($workingTree)) {
+$statusResult = Invoke-GitProcess -Arguments @('status', '--porcelain')
+if (-not [string]::IsNullOrWhiteSpace($statusResult.StdOut)) {
     throw 'The repository has uncommitted changes. Commit or stash them before publishing a release tag.'
 }
 
-Invoke-Git -Arguments @('checkout', 'main')
-Invoke-Git -Arguments @('pull', '--ff-only', $Remote, 'main')
+$checkoutResult = Invoke-GitProcess -Arguments @('checkout', 'main')
+Write-GitOutput -Result $checkoutResult
 
-$resolvedCommit = Get-GitText -Arguments @('rev-parse', '--verify', "$Commit^{commit}")
+$pullResult = Invoke-GitProcess -Arguments @('pull', '--ff-only', $Remote, 'main')
+Write-GitOutput -Result $pullResult
 
-& git -C $script:RepoRoot merge-base --is-ancestor $resolvedCommit "$Remote/main"
-if ($LASTEXITCODE -ne 0) {
-    throw "Release commit '$resolvedCommit' is not an ancestor of '$Remote/main'. Refusing to publish an unrelated tag."
+$commitResult = Invoke-GitProcess -Arguments @('rev-parse', '--verify', "$Commit^{commit}")
+if ([string]::IsNullOrWhiteSpace($commitResult.StdOut)) {
+    throw "Release commit '$Commit' could not be resolved."
+}
+$resolvedCommit = $commitResult.StdOut
+
+$ancestorResult = Invoke-GitProcess -Arguments @(
+    'merge-base',
+    '--is-ancestor',
+    $resolvedCommit,
+    "$Remote/main"
+) -AllowFailure
+if ($ancestorResult.ExitCode -ne 0) {
+    throw "Release commit '$resolvedCommit' is not an ancestor of '$Remote/main'."
 }
 
-$localTag = Get-GitText -Arguments @('tag', '--list', $Tag) -AllowEmpty
-if (-not [string]::IsNullOrWhiteSpace($localTag)) {
-    $localTarget = Get-GitText -Arguments @('rev-list', '-n', '1', $Tag)
-    if ($localTarget -ne $resolvedCommit) {
-        throw "Local tag '$Tag' already points to '$localTarget', not '$resolvedCommit'."
+$localTagResult = Invoke-GitProcess -Arguments @('tag', '--list', $Tag)
+$localTagExists = -not [string]::IsNullOrWhiteSpace($localTagResult.StdOut)
+if ($localTagExists) {
+    $localTargetResult = Invoke-GitProcess -Arguments @('rev-list', '-n', '1', $Tag)
+    if ($localTargetResult.StdOut -ne $resolvedCommit) {
+        throw "Local tag '$Tag' points to '$($localTargetResult.StdOut)', not '$resolvedCommit'."
     }
     Write-Host "Local tag '$Tag' already points to the expected commit."
 }
 
-$remoteLines = @(Get-GitLines -Arguments @(
+$remoteTagResult = Invoke-GitProcess -Arguments @(
     'ls-remote',
     '--tags',
     $Remote,
     "refs/tags/$Tag",
     "refs/tags/$Tag^{}"
-))
-if ($remoteLines.Count -gt 0) {
+)
+$remoteTagLines = @(
+    $remoteTagResult.StdOut -split "`r?`n" |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+)
+
+if ($remoteTagLines.Count -gt 0) {
     $escapedTag = [regex]::Escape($Tag)
-    $peeledLine = $remoteLines |
+    $peeledLine = $remoteTagLines |
         Where-Object { $_ -match "refs/tags/$escapedTag\^\{\}$" } |
         Select-Object -First 1
-    $selectedLine = if ($peeledLine) {
-        $peeledLine
+    $selectedLine = if ($null -ne $peeledLine) {
+        [string]$peeledLine
     }
     else {
-        $remoteLines | Select-Object -First 1
+        [string]$remoteTagLines[0]
     }
-    $remoteTarget = ([string]$selectedLine -split '\s+')[0]
+    $remoteTarget = ($selectedLine -split '\s+')[0]
     if ($remoteTarget -ne $resolvedCommit) {
-        throw "Remote tag '$Tag' already points to '$remoteTarget', not '$resolvedCommit'."
+        throw "Remote tag '$Tag' points to '$remoteTarget', not '$resolvedCommit'."
     }
     Write-Host "Remote tag '$Tag' already exists at the expected commit. Nothing to publish."
-    exit 0
+    return
 }
 
-if ([string]::IsNullOrWhiteSpace($localTag)) {
+if (-not $localTagExists) {
     if ($PSCmdlet.ShouldProcess($resolvedCommit, "Create annotated tag $Tag")) {
-        Invoke-Git -Arguments @('tag', '-a', $Tag, $resolvedCommit, '-m', "TRACE IAM Evidence $Tag")
+        $createResult = Invoke-GitProcess -Arguments @(
+            'tag',
+            '-a',
+            $Tag,
+            $resolvedCommit,
+            '-m',
+            "TRACE IAM Evidence $Tag"
+        )
+        Write-GitOutput -Result $createResult
     }
 }
 
 if ($PSCmdlet.ShouldProcess($Remote, "Push tag $Tag")) {
-    Invoke-Git -Arguments @('push', $Remote, "refs/tags/$Tag")
+    $pushResult = Invoke-GitProcess -Arguments @('push', $Remote, "refs/tags/$Tag")
+    Write-GitOutput -Result $pushResult
 }
 
-Write-Host "Published '$Tag' at '$resolvedCommit'."
-Write-Host 'GitHub Actions tag workflows should now start automatically.'
+if ($WhatIfPreference) {
+    Write-Host "WhatIf completed. Tag '$Tag' was not created or pushed."
+}
+else {
+    Write-Host "Published '$Tag' at '$resolvedCommit'."
+    Write-Host 'GitHub Actions tag workflows should now start automatically.'
+}
