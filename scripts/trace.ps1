@@ -84,7 +84,7 @@ function Invoke-External {
     try {
         & $FilePath @Arguments
         if ($LASTEXITCODE -ne 0) {
-            throw "Command failed with exit code $LASTEXITCODE: $FilePath $($Arguments -join ' ')"
+            throw "Command failed with exit code ${LASTEXITCODE}: $FilePath $($Arguments -join ' ')"
         }
     }
     finally {
@@ -248,7 +248,7 @@ function Show-Diagnostics {
     if (Test-Path $DatabasePath) {
         $python = if (Test-Path $VenvPython) { $VenvPython } elseif ($launcher) { $launcher.File } else { $null }
         if ($python) {
-            $arguments = if ($python -eq $launcher.File) { @($launcher.Prefix + @($DatabaseUtility, 'verify', $DatabasePath)) } else { @($DatabaseUtility, 'verify', $DatabasePath) }
+            $arguments = if ($launcher -and $python -eq $launcher.File) { @($launcher.Prefix + @($DatabaseUtility, 'verify', $DatabasePath)) } else { @($DatabaseUtility, 'verify', $DatabasePath) }
             Invoke-External -FilePath $python -Arguments $arguments
         }
     }
