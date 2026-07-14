@@ -24,6 +24,11 @@ class InvestigationRecord(Base):
         cascade="all, delete-orphan",
         order_by="AnalysisRunRecord.run_number",
     )
+    timeline_events: Mapped[list["TimelineEventRecord"]] = relationship(
+        back_populates="investigation",
+        cascade="all, delete-orphan",
+        order_by="TimelineEventRecord.id",
+    )
 
 
 class AnalysisRunRecord(Base):
@@ -45,3 +50,20 @@ class AnalysisRunRecord(Base):
     report_markdown: Mapped[str] = mapped_column(Text, nullable=False)
 
     investigation: Mapped[InvestigationRecord] = relationship(back_populates="analysis_runs")
+
+
+class TimelineEventRecord(Base):
+    __tablename__ = "timeline_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    investigation_id: Mapped[str] = mapped_column(
+        ForeignKey("investigations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    actor_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    actor_label: Mapped[str] = mapped_column(String(120), nullable=False)
+    summary: Mapped[str] = mapped_column(String(512), nullable=False)
+    details_json: Mapped[str] = mapped_column(Text, nullable=False)
+
+    investigation: Mapped[InvestigationRecord] = relationship(back_populates="timeline_events")

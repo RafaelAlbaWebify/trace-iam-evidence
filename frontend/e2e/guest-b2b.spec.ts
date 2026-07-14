@@ -29,8 +29,9 @@ test("operator creates and analyzes a persisted Guest B2B case", async ({ page }
   const historyRow = page.getByRole("button", { name: "Guest B2B lifecycle review" }).locator("..");
   await expect(historyRow).toContainText("guest_b2b");
   await expect(historyRow).toContainText("analyzed · 1 run(s)");
-  await expect(page.getByText("GB-001@1.0.0+GB-002@1.0.0+GB-003@1.0.0")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Export JSON" })).toHaveAttribute("href", `/api/investigations/${investigationId}/runs/1/report.json`);
+  const runsPanel = page.getByRole("heading", { name: `Analysis runs for ${investigationId}` }).locator("..");
+  await expect(runsPanel).toContainText("GB-001@1.0.0+GB-002@1.0.0+GB-003@1.0.0");
+  await expect(runsPanel.getByRole("link", { name: "Export JSON" })).toHaveAttribute("href", `/api/investigations/${investigationId}/runs/1/report.json`);
 
   const jsonReportResponse = await page.request.get(`/api/investigations/${investigationId}/runs/1/report.json`);
   const markdownReportResponse = await page.request.get(`/api/investigations/${investigationId}/runs/1/report.md`);
