@@ -5,7 +5,7 @@ test("operator manages evidence, findings, chronology, comparison, and operation
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "TRACE IAM Evidence" })).toBeVisible();
   await page.locator("#case-name").fill("Conditional Access sign-in review");
-  await page.getByRole("combobox", { name: "Scenario", exact: true }).selectOption("conditional_access");
+  await page.locator("#case-scenario").selectOption("conditional_access");
   await page.locator("#case-priority").selectOption("high");
   await page.locator("#case-reference").fill("INC-REDACTED-CA-01");
   await page.locator("#case-summary").fill("Redacted sign-in failure affecting a managed application.");
