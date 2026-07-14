@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 
 import { App } from "./App";
@@ -45,10 +45,11 @@ test("creates and activates a server-generated investigation with operational me
   await screen.findByText("No persisted investigations yet.");
   fireEvent.click(screen.getByRole("button", { name: "Create investigation" }));
 
-  expect(await screen.findByText("Active investigation")).toBeInTheDocument();
-  expect(screen.getByText("trace-a1b2c3d4e5f6")).toBeInTheDocument();
-  expect(screen.getByText("Normal priority")).toBeInTheDocument();
-  expect(screen.getByText("INC-REDACTED-001")).toBeInTheDocument();
+  const activePanel = await screen.findByRole("status", { name: "" });
+  expect(within(activePanel).getByText("Active investigation")).toBeInTheDocument();
+  expect(within(activePanel).getByText("trace-a1b2c3d4e5f6")).toBeInTheDocument();
+  expect(within(activePanel).getByText("Normal priority")).toBeInTheDocument();
+  expect(within(activePanel).getByText("INC-REDACTED-001")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Analyze evidence" })).toBeEnabled();
   expect(screen.getByRole("button", { name: "Select a resource-assignment case" })).toBeDisabled();
 
