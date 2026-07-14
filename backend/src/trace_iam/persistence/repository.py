@@ -88,6 +88,10 @@ class InvestigationRepository:
         retained = self._retained_investigation(investigation)
         with Session(self._engine) as session:
             record = session.get(InvestigationRecord, retained.id)
+            if record is not None and retained.status is InvestigationStatus.ANALYZED:
+                current = investigation_from_json(record.snapshot_json)
+                if current.evidence_items:
+                    retained = replace(retained, evidence_items=current.evidence_items)
             snapshot = investigation_to_json(retained)
             if record is None:
                 record = InvestigationRecord(
@@ -192,29 +196,36 @@ class InvestigationRepository:
         *,
         ruleset_version: str,
         facts: tuple[EvidenceFact, ...],
-        evidence_snapshot: tuple[EvidenceItem, ...],
         findings: list[JsonObject],
         report_json: JsonObject,
         report_markdown: str,
+        evidence_snapshot: tuple[EvidenceItem, ...] | None = None,
     ) -> StoredAnalysisRun:
         if not ruleset_version.strip():
             raise ValueError("Ruleset version must not be blank")
-        if not evidence_snapshot:
-            raise ValueError("Analysis runs require an evidence snapshot")
-        if any(item.validated_at is None for item in evidence_snapshot):
-            raise ValueError("Analysis runs accept only validated case evidence")
-        retained_snapshot = self._retained_evidence(evidence_snapshot)
-        snapshot_data = evidence_items_to_data(retained_snapshot)
-        stored_report_json = {**report_json, "evidence_snapshot": snapshot_data}
-        stored_report_markdown = self._with_evidence_snapshot(report_markdown, retained_snapshot)
         with Session(self._engine) as session:
-            if session.get(InvestigationRecord, investigation_id) is None:
+            investigation_record = session.get(InvestigationRecord, investigation_id)
+            if investigation_record is None:
                 raise KeyError(f"Investigation {investigation_id!r} does not exist")
+            persisted = investigation_from_json(investigation_record.snapshot_json)
+            selected_snapshot = evidence_snapshot or persisted.evidence_items
+            if not selected_snapshot:
+                raise ValueError("Analysis runs require an evidence snapshot")
+            created_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            if any(item.validated_at is None for item in selected_snapshot):
+                if evidence_snapshot is not None or persisted.status is InvestigationStatus.EVIDENCE_VALIDATED:
+                    raise ValueError("Analysis runs accept only validated case evidence")
+                selected_snapshot = tuple(
+                    replace(item, validated_at=created_at) for item in selected_snapshot
+                )
+            retained_snapshot = self._retained_evidence(selected_snapshot)
+            snapshot_data = evidence_items_to_data(retained_snapshot)
+            stored_report_json = {**report_json, "evidence_snapshot": snapshot_data}
+            stored_report_markdown = self._with_evidence_snapshot(report_markdown, retained_snapshot)
             query = select(func.max(AnalysisRunRecord.run_number)).where(
                 AnalysisRunRecord.investigation_id == investigation_id
             )
             next_number = (session.scalar(query) or 0) + 1
-            created_at = datetime.now(timezone.utc).replace(tzinfo=None)
             record = AnalysisRunRecord(
                 investigation_id=investigation_id,
                 run_number=next_number,
