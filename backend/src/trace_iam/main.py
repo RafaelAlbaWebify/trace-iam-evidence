@@ -6,6 +6,7 @@ from trace_iam.api import (
     evidence_router,
     guest_b2b_router,
     investigation_router,
+    operational_router,
     resource_assignment_router,
     timeline_router,
 )
@@ -24,6 +25,7 @@ app.include_router(resource_assignment_router)
 app.include_router(guest_b2b_router)
 app.include_router(timeline_router)
 app.include_router(comparison_router)
+app.include_router(operational_router)
 
 
 @app.get("/api/health", response_model=HealthResponse)
