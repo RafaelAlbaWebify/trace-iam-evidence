@@ -7,6 +7,30 @@
   background: var(--surface, #fff);
 }
 
+.finding-exports {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .75rem;
+}
+
+.finding-exports a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.5rem;
+  padding: .55rem .8rem;
+  border: 1px solid #94a3b8;
+  border-radius: .65rem;
+  background: #f8fafc;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.finding-exports a:hover,
+.finding-exports a:focus-visible {
+  border-color: #334155;
+  background: #e2e8f0;
+}
+
 .finding-filters {
   display: flex;
   flex-wrap: wrap;
@@ -142,4 +166,5 @@
   .finding-card > header { flex-direction: column; }
   .finding-badges { justify-content: start; }
   .finding-filters span { width: 100%; margin-left: 0; padding-bottom: 0; }
+  .finding-exports { display: grid; }
 }
