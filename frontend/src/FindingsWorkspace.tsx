@@ -82,7 +82,7 @@ export function FindingsWorkspace({ result }: Props) {
     && (confidence === "all" || finding.confidence === confidence));
 
   return <section id="analysis-result" className="findings-workspace" aria-labelledby="findings-title">
-    <div className="section-heading"><span>Evidence outcome</span><h2 id="findings-title">Structured findings workspace</h2></div>
+    <div className="section-heading"><span>Structured findings workspace</span><h2 id="findings-title">Analysis result</h2></div>
     <div className="result-summary">
       <article><span>Run</span><strong>{result.run_number}</strong></article>
       <article><span>Findings</span><strong>{result.finding_count}</strong></article>
