@@ -2,6 +2,7 @@
 
 from .models import (
     AnalysisContext,
+    CasePriority,
     Confidence,
     EvidenceFact,
     EvidenceItem,
@@ -18,6 +19,7 @@ from .rules import Rule, RuleResult
 
 __all__ = [
     "AnalysisContext",
+    "CasePriority",
     "Confidence",
     "EvidenceFact",
     "EvidenceItem",
