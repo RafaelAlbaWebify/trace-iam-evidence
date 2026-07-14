@@ -8,6 +8,9 @@ from alembic.config import Config
 from .database import sqlite_engine
 from .repository import EvidenceRetentionMode, InvestigationRepository
 from .timeline import TimelineRepository
+from .timeline_hooks import install_timeline_hooks
+
+install_timeline_hooks()
 
 
 def _backend_root() -> Path:
