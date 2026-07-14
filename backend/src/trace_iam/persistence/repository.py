@@ -149,9 +149,24 @@ class InvestigationRepository:
             if record is None:
                 raise KeyError(f"Investigation {investigation_id!r} does not exist")
             investigation = investigation_from_json(record.snapshot_json)
-            next_status = InvestigationStatus.ARCHIVED if archived else InvestigationStatus.ANALYZED
-            updated = replace(investigation, status=next_status)
-            record.status = next_status.value
+            if archived:
+                if investigation.status is InvestigationStatus.ARCHIVED:
+                    return investigation
+                updated = replace(
+                    investigation,
+                    status=InvestigationStatus.ARCHIVED,
+                    pre_archive_status=investigation.status,
+                )
+            else:
+                if investigation.status is not InvestigationStatus.ARCHIVED:
+                    return investigation
+                restored_status = investigation.pre_archive_status or InvestigationStatus.ANALYZED
+                updated = replace(
+                    investigation,
+                    status=restored_status,
+                    pre_archive_status=None,
+                )
+            record.status = updated.status.value
             record.archived_at = (
                 datetime.now(timezone.utc).replace(tzinfo=None) if archived else None
             )
