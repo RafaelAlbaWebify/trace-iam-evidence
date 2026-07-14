@@ -77,9 +77,18 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
       - name: Test self-locating release publisher
         shell: pwsh
         run: ./scripts/test_publish_release_candidate.ps1
+      - name: Test self-locating local runtime manager
+        shell: pwsh
+        run: ./scripts/test_trace_runtime.ps1
 
   browser-proof:
     runs-on: ubuntu-latest
