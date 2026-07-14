@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -51,11 +52,14 @@ def restore_database(source: Path, destination: Path) -> Path:
     if result["integrity"] != "ok":
         raise RuntimeError(f"Restore source is not a valid SQLite database: {source}")
 
-    previous = destination.with_suffix(destination.suffix + ".restore-previous")
+    previous = destination.with_suffix(destination.suffix + ".restore-previous.db")
     previous.unlink(missing_ok=True)
     had_destination = destination.exists()
     if had_destination:
-        backup_database(destination, previous)
+        shutil.copy2(destination, previous)
+        if verify_database(previous)["integrity"] != "ok":
+            previous.unlink(missing_ok=True)
+            raise RuntimeError("Current database rollback copy failed integrity verification")
 
     try:
         _sqlite_copy(source, destination)
@@ -63,7 +67,7 @@ def restore_database(source: Path, destination: Path) -> Path:
             raise RuntimeError("Restored database failed integrity verification")
     except Exception:
         if previous.exists():
-            _sqlite_copy(previous, destination)
+            shutil.copy2(previous, destination)
         elif not had_destination:
             destination.unlink(missing_ok=True)
         raise
