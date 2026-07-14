@@ -1,5 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 
+import { TimelineWorkspace } from "./TimelineWorkspace";
+
 type EvidenceKind = "manual_structured" | "entra_signin_csv" | "generic_text_excerpt";
 type EvidenceReliability = "unknown" | "low" | "medium" | "high";
 
@@ -20,6 +22,7 @@ type EvidenceItem = {
 type ActiveCase = {
   investigation_id: string;
   status: string;
+  evidence_item_count: number;
   analysis_run_count: number;
 };
 
@@ -145,45 +148,38 @@ export function EvidenceWorkspace({ activeCase, unavailable, onCaseChanged, onEr
   const locked = !activeCase || activeCase.status === "archived";
   const busy = unavailable || loading;
 
-  return (
+  return <>
     <section id="evidence-workspace" className="evidence-workspace" aria-labelledby="evidence-workspace-title">
       <div className="section-heading"><span>Evidence control</span><h2 id="evidence-workspace-title">Active-case evidence inventory</h2></div>
-      {!activeCase ? <p className="empty-state">Create or open an investigation to manage its evidence inventory.</p> : (
-        <>
-          <div className="evidence-summary" aria-label="Evidence inventory summary">
-            <article><span>Items</span><strong>{items.length}</strong></article>
-            <article><span>Validated</span><strong>{items.filter((item) => item.validated_at).length}</strong></article>
-            <article><span>Case state</span><strong>{label(activeCase.status)}</strong></article>
+      {!activeCase ? <p className="empty-state">Create or open an investigation to manage its evidence inventory.</p> : <>
+        <div className="evidence-summary" aria-label="Evidence inventory summary">
+          <article><span>Items</span><strong>{items.length}</strong></article>
+          <article><span>Validated</span><strong>{items.filter((item) => item.validated_at).length}</strong></article>
+          <article><span>Case state</span><strong>{label(activeCase.status)}</strong></article>
+        </div>
+        <form className="evidence-form" onSubmit={addEvidence}>
+          <div><label htmlFor="evidence-id">Evidence ID</label><input id="evidence-id" value={evidenceId} onChange={(event) => setEvidenceId(event.target.value)} required maxLength={120} /></div>
+          <div><label htmlFor="evidence-kind">Evidence type</label><select id="evidence-kind" value={kind} onChange={(event) => setKind(event.target.value as EvidenceKind)}><option value="generic_text_excerpt">Log or text excerpt</option><option value="manual_structured">Structured observation</option><option value="entra_signin_csv">Entra sign-in CSV reference</option></select></div>
+          <div><label htmlFor="evidence-source">Redacted source</label><input id="evidence-source" value={source} onChange={(event) => setSource(event.target.value)} required /></div>
+          <div><label htmlFor="evidence-reliability">Reliability</label><select id="evidence-reliability" value={reliability} onChange={(event) => setReliability(event.target.value as EvidenceReliability)}><option value="unknown">Unknown</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></div>
+          <div><label htmlFor="evidence-subject">Redacted subject</label><input id="evidence-subject" value={subject} onChange={(event) => setSubject(event.target.value)} /></div>
+          <div><label htmlFor="evidence-resource">Redacted resource</label><input id="evidence-resource" value={resource} onChange={(event) => setResource(event.target.value)} /></div>
+          <div className="wide-field"><label htmlFor="evidence-excerpt">Redacted excerpt</label><textarea id="evidence-excerpt" rows={4} value={excerpt} onChange={(event) => setExcerpt(event.target.value)} /></div>
+          <div className="wide-field"><label htmlFor="evidence-notes">Redacted operator notes</label><textarea id="evidence-notes" rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} /></div>
+          <button type="submit" disabled={busy || locked}>{locked ? "Reopen case to add evidence" : "Add evidence item"}</button>
+        </form>
+        {items.length === 0 ? <p className="empty-state">No persisted evidence items yet.</p> : <ul className="evidence-list">{items.map((item) => <li key={item.evidence_id}>
+          <div className="evidence-card-heading"><strong>{item.evidence_id}</strong><span className={item.validated_at ? "validated" : "pending"}>{item.validated_at ? "Validated" : "Pending validation"}</span></div>
+          <dl><div><dt>Type</dt><dd>{label(item.kind)}</dd></div><div><dt>Source</dt><dd>{item.source}</dd></div><div><dt>Reliability</dt><dd>{label(item.reliability)}</dd></div>{item.subject && <div><dt>Subject</dt><dd>{item.subject}</dd></div>}{item.resource && <div><dt>Resource</dt><dd>{item.resource}</dd></div>}</dl>
+          {item.excerpt && <p className="evidence-excerpt">{item.excerpt}</p>}
+          {item.notes && <small>{item.notes}</small>}
+          <div className="case-actions">
+            <button type="button" disabled={busy || locked || Boolean(item.validated_at)} onClick={() => validateEvidence(item)}>{item.validated_at ? "Evidence validated" : "Validate evidence"}</button>
+            <button type="button" className="secondary" disabled={busy || locked || activeCase.analysis_run_count > 0} onClick={() => deleteEvidence(item)}>{activeCase.analysis_run_count > 0 ? "Protected by immutable run" : "Delete evidence"}</button>
           </div>
-          <form className="evidence-form" onSubmit={addEvidence}>
-            <div><label htmlFor="evidence-id">Evidence ID</label><input id="evidence-id" value={evidenceId} onChange={(event) => setEvidenceId(event.target.value)} required maxLength={120} /></div>
-            <div><label htmlFor="evidence-kind">Evidence type</label><select id="evidence-kind" value={kind} onChange={(event) => setKind(event.target.value as EvidenceKind)}><option value="generic_text_excerpt">Log or text excerpt</option><option value="manual_structured">Structured observation</option><option value="entra_signin_csv">Entra sign-in CSV reference</option></select></div>
-            <div><label htmlFor="evidence-source">Redacted source</label><input id="evidence-source" value={source} onChange={(event) => setSource(event.target.value)} required /></div>
-            <div><label htmlFor="evidence-reliability">Reliability</label><select id="evidence-reliability" value={reliability} onChange={(event) => setReliability(event.target.value as EvidenceReliability)}><option value="unknown">Unknown</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></div>
-            <div><label htmlFor="evidence-subject">Redacted subject</label><input id="evidence-subject" value={subject} onChange={(event) => setSubject(event.target.value)} /></div>
-            <div><label htmlFor="evidence-resource">Redacted resource</label><input id="evidence-resource" value={resource} onChange={(event) => setResource(event.target.value)} /></div>
-            <div className="wide-field"><label htmlFor="evidence-excerpt">Redacted excerpt</label><textarea id="evidence-excerpt" rows={4} value={excerpt} onChange={(event) => setExcerpt(event.target.value)} /></div>
-            <div className="wide-field"><label htmlFor="evidence-notes">Redacted operator notes</label><textarea id="evidence-notes" rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} /></div>
-            <button type="submit" disabled={busy || locked}>{locked ? "Reopen case to add evidence" : "Add evidence item"}</button>
-          </form>
-          {items.length === 0 ? <p className="empty-state">No persisted evidence items yet.</p> : (
-            <ul className="evidence-list">
-              {items.map((item) => (
-                <li key={item.evidence_id}>
-                  <div className="evidence-card-heading"><strong>{item.evidence_id}</strong><span className={item.validated_at ? "validated" : "pending"}>{item.validated_at ? "Validated" : "Pending validation"}</span></div>
-                  <dl><div><dt>Type</dt><dd>{label(item.kind)}</dd></div><div><dt>Source</dt><dd>{item.source}</dd></div><div><dt>Reliability</dt><dd>{label(item.reliability)}</dd></div>{item.subject && <div><dt>Subject</dt><dd>{item.subject}</dd></div>}{item.resource && <div><dt>Resource</dt><dd>{item.resource}</dd></div>}</dl>
-                  {item.excerpt && <p className="evidence-excerpt">{item.excerpt}</p>}
-                  {item.notes && <small>{item.notes}</small>}
-                  <div className="case-actions">
-                    <button type="button" disabled={busy || locked || Boolean(item.validated_at)} onClick={() => validateEvidence(item)}>{item.validated_at ? "Evidence validated" : "Validate evidence"}</button>
-                    <button type="button" className="secondary" disabled={busy || locked || activeCase.analysis_run_count > 0} onClick={() => deleteEvidence(item)}>{activeCase.analysis_run_count > 0 ? "Protected by immutable run" : "Delete evidence"}</button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </>
-      )}
+        </li>)}</ul>}
+      </>}
     </section>
-  );
+    <TimelineWorkspace activeCase={activeCase} unavailable={unavailable} onError={onError} onNotice={onNotice} />
+  </>;
 }
