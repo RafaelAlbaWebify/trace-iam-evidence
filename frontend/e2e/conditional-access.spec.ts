@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 
-test("operator manages evidence, findings, chronology, and immutable run comparison", async ({ page }) => {
+test("operator manages evidence, findings, chronology, comparison, and operational search", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "TRACE IAM Evidence" })).toBeVisible();
   await page.locator("#case-name").fill("Conditional Access sign-in review");
@@ -17,11 +17,13 @@ test("operator manages evidence, findings, chronology, and immutable run compari
   const evidenceWorkspace = page.getByRole("region", { name: "Active-case evidence inventory" });
   const timelineWorkspace = page.getByRole("region", { name: "Investigation timeline" });
   const comparisonWorkspace = page.getByRole("region", { name: "Analysis run comparison" });
+  const operationsDashboard = page.getByRole("region", { name: "Case search and workload dashboard" });
   const investigationId = (await activeCase.locator("code").textContent())?.trim();
   expect(investigationId).toMatch(/^trace-[a-f0-9]{12}$/);
   await expect(evidenceWorkspace).toBeVisible();
   await expect(timelineWorkspace).toBeVisible();
   await expect(comparisonWorkspace).toBeVisible();
+  await expect(operationsDashboard).toBeVisible();
   await expect(timelineWorkspace.getByText("Investigation created.")).toBeVisible();
 
   await page.locator("#evidence-id").fill("signin-log-001");
@@ -73,6 +75,16 @@ test("operator manages evidence, findings, chronology, and immutable run compari
   await page.getByRole("button", { name: "Reopen" }).click();
   await expect(page.getByText("reviewed · 2 run(s)")).toBeVisible();
 
+  await operationsDashboard.getByLabel("Search cases").fill("INC-REDACTED-CA-01");
+  const dashboardResponse = page.waitForResponse((response) => response.url().includes("/api/operations/dashboard?query=INC-REDACTED-CA-01"));
+  await operationsDashboard.getByRole("button", { name: "Apply operational filters" }).click();
+  expect((await dashboardResponse).ok()).toBeTruthy();
+  const dashboardCase = operationsDashboard.getByText("Conditional Access sign-in review").locator("xpath=ancestor::li");
+  await expect(dashboardCase).toContainText(investigationId as string);
+  await dashboardCase.getByRole("button", { name: "Open investigation" }).click();
+  await expect(activeCase.locator("code")).toHaveText(investigationId as string);
+  await expect(activeCase).toContainText("reviewed");
+
   const comparisonApiResponse = await page.request.get(`/api/investigations/${investigationId}/compare-runs?base_run=1&target_run=2`);
   expect(comparisonApiResponse.ok()).toBeTruthy();
   const comparison = await comparisonApiResponse.json();
@@ -87,9 +99,14 @@ test("operator manages evidence, findings, chronology, and immutable run compari
   const jsonReportResponse = await page.request.get(`/api/investigations/${investigationId}/runs/1/report.json`);
   const jsonReport = await jsonReportResponse.json();
   expect(jsonReport.evidence_snapshot).toHaveLength(1);
+  const dashboardApiResponse = await page.request.get(`/api/operations/dashboard?query=${investigationId}`);
+  const dashboardApi = await dashboardApiResponse.json();
+  expect(dashboardApi.filtered_case_count).toBe(1);
+  expect(dashboardApi.cases[0].investigation_id).toBe(investigationId);
   await mkdir("e2e-artifacts", { recursive: true });
   await writeFile("e2e-artifacts/report.json", JSON.stringify(jsonReport, null, 2));
   await writeFile("e2e-artifacts/timeline.json", JSON.stringify(timeline, null, 2));
   await writeFile("e2e-artifacts/comparison.json", JSON.stringify(comparison, null, 2));
-  await page.screenshot({ path: "e2e-artifacts/run-comparison.png", fullPage: true });
+  await writeFile("e2e-artifacts/operations-dashboard.json", JSON.stringify(dashboardApi, null, 2));
+  await page.screenshot({ path: "e2e-artifacts/operations-dashboard.png", fullPage: true });
 });
