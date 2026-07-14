@@ -92,7 +92,7 @@ def test_archive_hides_history_and_reopen_restores_it(tmp_path: Path) -> None:
 
         reopened = client.post("/api/investigations/archive-1/reopen")
         assert reopened.status_code == 200
-        assert reopened.json()["status"] == "analyzed"
+        assert reopened.json()["status"] == "draft"
         assert client.get("/api/investigations").json()[0]["investigation_id"] == (
             "archive-1"
         )

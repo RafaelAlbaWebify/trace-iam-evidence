@@ -122,6 +122,7 @@ class Investigation:
     affected_resource: str | None = None
     evidence_items: tuple[EvidenceItem, ...] = ()
     created_at: datetime = field(default_factory=datetime.utcnow)
+    pre_archive_status: InvestigationStatus | None = None
 
     def __post_init__(self) -> None:
         if not self.id.strip():
@@ -132,6 +133,8 @@ class Investigation:
             raise ValueError("External reference must not be blank")
         if self.summary is not None and not self.summary.strip():
             raise ValueError("Investigation summary must not be blank")
+        if self.pre_archive_status is InvestigationStatus.ARCHIVED:
+            raise ValueError("Pre-archive status cannot itself be archived")
 
 
 @dataclass(frozen=True, slots=True)

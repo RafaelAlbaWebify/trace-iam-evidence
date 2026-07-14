@@ -56,6 +56,7 @@ def investigation_from_json(payload: str) -> Investigation:
         )
         for item in raw_items
     )
+    raw_pre_archive_status = cast(str | None, data.get("pre_archive_status"))
     return Investigation(
         id=cast(str, data["id"]),
         title=cast(str, data["title"]),
@@ -68,6 +69,9 @@ def investigation_from_json(payload: str) -> Investigation:
         affected_resource=cast(str | None, data["affected_resource"]),
         evidence_items=evidence_items,
         created_at=datetime.fromisoformat(cast(str, data["created_at"])),
+        pre_archive_status=(
+            InvestigationStatus(raw_pre_archive_status) if raw_pre_archive_status else None
+        ),
     )
 
 
