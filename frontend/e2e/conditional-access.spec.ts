@@ -26,7 +26,7 @@ test("operator manages validated case evidence before immutable analysis", async
   const addResponse = page.waitForResponse((response) => response.url().endsWith(`/api/investigations/${investigationId}/evidence`) && response.request().method() === "POST");
   await page.getByRole("button", { name: "Add evidence item" }).click();
   expect((await addResponse).ok()).toBeTruthy();
-  const evidenceCard = page.getByText("signin-log-001").locator("..");
+  const evidenceCard = page.getByText("signin-log-001").locator("xpath=ancestor::li");
   await expect(evidenceCard).toContainText("High");
   await expect(evidenceCard).toContainText("Pending validation");
 
