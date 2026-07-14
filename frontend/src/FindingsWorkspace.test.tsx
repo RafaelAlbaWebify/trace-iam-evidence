@@ -5,6 +5,7 @@ import { afterEach, expect, test } from "vitest";
 import { FindingsWorkspace } from "./FindingsWorkspace";
 
 const result: ComponentProps<typeof FindingsWorkspace>["result"] = {
+  investigation_id: "trace-a1b2c3d4e5f6",
   run_number: 2,
   finding_count: 2,
   evaluated_rule_ids: ["CA-001", "CA-002"],
@@ -49,6 +50,8 @@ test("presents structured evidence, safe checks, non-actions and raw reports", (
   render(<FindingsWorkspace result={result} />);
   expect(screen.getByRole("heading", { name: "Analysis result" })).toBeInTheDocument();
   expect(screen.getByText("Structured findings workspace")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Export immutable JSON" })).toHaveAttribute("href", "/api/investigations/trace-a1b2c3d4e5f6/runs/2/report.json");
+  expect(screen.getByRole("link", { name: "Export immutable Markdown" })).toHaveAttribute("href", "/api/investigations/trace-a1b2c3d4e5f6/runs/2/report.md");
   const highCard = screen.getByRole("heading", { name: "Conditional Access blocked the sign-in" }).closest("article");
   expect(highCard).not.toBeNull();
   expect(within(highCard as HTMLElement).getByText("high severity")).toBeInTheDocument();
