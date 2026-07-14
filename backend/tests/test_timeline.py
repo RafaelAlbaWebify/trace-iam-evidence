@@ -8,7 +8,7 @@ from sqlalchemy import Engine, inspect
 from trace_iam.domain import Investigation, ScenarioType
 from trace_iam.main import app
 from trace_iam.persistence import InvestigationRepository, sqlite_engine
-from trace_iam.persistence.runtime import get_timeline_repository
+from trace_iam.persistence.runtime import get_repository, get_timeline_repository
 from trace_iam.persistence.timeline import (
     TimelineActorType,
     TimelineEventType,
@@ -69,6 +69,7 @@ def test_operator_note_api_is_attributed_and_redacted(tmp_path: Path) -> None:
         scenario_type=ScenarioType.GUEST_B2B,
     )
     investigation_repository.save_investigation(case)
+    app.dependency_overrides[get_repository] = lambda: investigation_repository
     app.dependency_overrides[get_timeline_repository] = lambda: timeline_repository
     client = TestClient(app)
     try:
@@ -86,5 +87,28 @@ def test_operator_note_api_is_attributed_and_redacted(tmp_path: Path) -> None:
         listed = client.get(f"/api/investigations/{case.id}/timeline?newest_first=true")
         assert listed.status_code == 200
         assert listed.json()[0]["summary"].startswith("Redacted follow-up")
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_archived_case_rejects_operator_notes(tmp_path: Path) -> None:
+    _, investigation_repository, timeline_repository = repositories(tmp_path)
+    case = Investigation(
+        id="trace-timeline-archived-001",
+        title="Archived timeline proof",
+        scenario_type=ScenarioType.RESOURCE_ASSIGNMENT,
+    )
+    investigation_repository.save_investigation(case)
+    investigation_repository.archive_investigation(case.id)
+    app.dependency_overrides[get_repository] = lambda: investigation_repository
+    app.dependency_overrides[get_timeline_repository] = lambda: timeline_repository
+    client = TestClient(app)
+    try:
+        response = client.post(
+            f"/api/investigations/{case.id}/timeline/notes",
+            json={"author": "Rafael", "note": "This note must not be accepted while archived."},
+        )
+        assert response.status_code == 409
+        assert response.json()["detail"].startswith("Archived investigations")
     finally:
         app.dependency_overrides.clear()
