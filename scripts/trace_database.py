@@ -48,11 +48,29 @@ def restore_database(source: Path, destination: Path) -> Path:
         raise RuntimeError(f"Restore source is not a valid SQLite database: {source}")
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.with_suffix(destination.suffix + ".restore-tmp")
+    previous = destination.with_suffix(destination.suffix + ".restore-previous")
+    temporary.unlink(missing_ok=True)
+    previous.unlink(missing_ok=True)
     shutil.copy2(source, temporary)
     if verify_database(temporary)["integrity"] != "ok":
         temporary.unlink(missing_ok=True)
         raise RuntimeError("Temporary restore copy failed integrity verification")
-    temporary.replace(destination)
+
+    had_destination = destination.exists()
+    try:
+        if had_destination:
+            destination.replace(previous)
+        temporary.replace(destination)
+        if verify_database(destination)["integrity"] != "ok":
+            raise RuntimeError("Restored database failed integrity verification")
+    except Exception:
+        destination.unlink(missing_ok=True)
+        if previous.exists():
+            previous.replace(destination)
+        raise
+    finally:
+        temporary.unlink(missing_ok=True)
+        previous.unlink(missing_ok=True)
     return destination
 
 
