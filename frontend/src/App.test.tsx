@@ -9,6 +9,10 @@ const createdCase = {
   evidence_item_count: 0, analysis_run_count: 0
 };
 const summaryCase = { ...createdCase, archived_at: null };
+const emptyDashboard = {
+  total_cases: 0, active_cases: 0, waiting_for_evidence: 0, ready_for_analysis: 0, under_review: 0,
+  critical_active: 0, archived_cases: 0, filtered_case_count: 0, cases: []
+};
 
 function response(payload: unknown, ok = true, status = 200) { return { ok, status, json: async () => payload }; }
 function installApi(overrides?: (url: string, init?: RequestInit) => unknown) {
@@ -16,6 +20,7 @@ function installApi(overrides?: (url: string, init?: RequestInit) => unknown) {
     const url = String(input);
     const overridden = overrides?.(url, init);
     if (overridden) return overridden;
+    if (url.startsWith("/api/operations/dashboard")) return response(emptyDashboard);
     if (url === "/api/investigations" && init?.method === "POST") return response(createdCase);
     if (url === "/api/investigations") return response([]);
     if (url === `/api/investigations/${createdCase.investigation_id}/evidence`) return response([]);
