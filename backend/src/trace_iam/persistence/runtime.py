@@ -1,6 +1,7 @@
 import os
 from functools import lru_cache
 from pathlib import Path
+from threading import Lock
 
 from alembic import command
 from alembic.config import Config
@@ -11,6 +12,9 @@ from .timeline import TimelineRepository
 from .timeline_hooks import install_timeline_hooks
 
 install_timeline_hooks()
+
+_migration_lock = Lock()
+_migrated_paths: set[Path] = set()
 
 
 def _backend_root() -> Path:
@@ -41,20 +45,31 @@ def migrate_database(path: Path) -> None:
     command.upgrade(config, "head")
 
 
+def ensure_database(path: Path) -> Path:
+    resolved = path.resolve()
+    if resolved in _migrated_paths:
+        return resolved
+    with _migration_lock:
+        if resolved not in _migrated_paths:
+            migrate_database(resolved)
+            _migrated_paths.add(resolved)
+    return resolved
+
+
 @lru_cache(maxsize=1)
 def get_repository() -> InvestigationRepository:
-    path = database_path()
-    migrate_database(path)
+    path = ensure_database(database_path())
     return InvestigationRepository(sqlite_engine(path), retention_mode=retention_mode())
 
 
 @lru_cache(maxsize=1)
 def get_timeline_repository() -> TimelineRepository:
-    path = database_path()
-    migrate_database(path)
+    path = ensure_database(database_path())
     return TimelineRepository(sqlite_engine(path))
 
 
 def reset_repository_cache() -> None:
     get_repository.cache_clear()
     get_timeline_repository.cache_clear()
+    with _migration_lock:
+        _migrated_paths.clear()
