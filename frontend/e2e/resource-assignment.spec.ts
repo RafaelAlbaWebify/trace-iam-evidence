@@ -6,7 +6,7 @@ test("operator creates and analyzes a persisted resource-assignment case", async
   await expect(page.getByRole("button", { name: "Create investigation" })).toBeEnabled();
 
   await page.getByLabel("Case title").fill("Resource assignment review");
-  await page.getByRole("combobox", { name: "Scenario", exact: true }).selectOption("resource_assignment");
+  await page.locator("#case-scenario").selectOption("resource_assignment");
   const createResponsePromise = page.waitForResponse((response) => response.url().endsWith("/api/investigations") && response.request().method() === "POST");
   await page.getByRole("button", { name: "Create investigation" }).click();
   expect((await createResponsePromise).ok()).toBeTruthy();
