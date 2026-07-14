@@ -35,14 +35,12 @@ def loads(value: str) -> Any:
     return json.loads(value)
 
 
-def investigation_to_json(investigation: Investigation) -> str:
-    return dumps(asdict(investigation))
+def evidence_items_to_data(evidence_items: tuple[EvidenceItem, ...]) -> list[JsonObject]:
+    return cast(list[JsonObject], loads(dumps([asdict(item) for item in evidence_items])))
 
 
-def investigation_from_json(payload: str) -> Investigation:
-    data = cast(JsonObject, loads(payload))
-    raw_items = cast(list[JsonObject], data["evidence_items"])
-    evidence_items = tuple(
+def evidence_items_from_data(items: list[JsonObject]) -> tuple[EvidenceItem, ...]:
+    return tuple(
         EvidenceItem(
             id=cast(str, item["id"]),
             kind=EvidenceKind(cast(str, item["kind"])),
@@ -66,8 +64,18 @@ def investigation_from_json(payload: str) -> Investigation:
                 else None
             ),
         )
-        for item in raw_items
+        for item in items
     )
+
+
+def investigation_to_json(investigation: Investigation) -> str:
+    return dumps(asdict(investigation))
+
+
+def investigation_from_json(payload: str) -> Investigation:
+    data = cast(JsonObject, loads(payload))
+    raw_items = cast(list[JsonObject], data["evidence_items"])
+    evidence_items = evidence_items_from_data(raw_items)
     raw_pre_archive_status = cast(str | None, data.get("pre_archive_status"))
     return Investigation(
         id=cast(str, data["id"]),
