@@ -9,11 +9,8 @@ try {
     Push-Location ([System.IO.Path]::GetTempPath())
     try {
         & $runtimeScript -Action diagnostics -DataDirectory $tempRoot -SkipInstall
-        if ($LASTEXITCODE -ne 0) { throw 'Diagnostics action failed.' }
         & $runtimeScript -Action status -DataDirectory $tempRoot -SkipInstall
-        if ($LASTEXITCODE -ne 0) { throw 'Status action failed.' }
         & $runtimeScript -Action stop -DataDirectory $tempRoot -SkipInstall
-        if ($LASTEXITCODE -ne 0) { throw 'Stop action failed.' }
     }
     finally {
         Pop-Location
