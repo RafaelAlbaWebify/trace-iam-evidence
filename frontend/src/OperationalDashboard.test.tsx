@@ -30,7 +30,7 @@ const dashboard = {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 test("shows operational workload, applies filters, and opens by generated ID", async () => {
-  const fetchMock = vi.fn(async () => ({ ok: true, status: 200, json: async () => dashboard }));
+  const fetchMock = vi.fn(async (_input: RequestInfo | URL) => ({ ok: true, status: 200, json: async () => dashboard }));
   vi.stubGlobal("fetch", fetchMock);
   const onOpenCase = vi.fn(async () => undefined);
   render(<OperationalDashboard onOpenCase={onOpenCase} onError={vi.fn()} />);
