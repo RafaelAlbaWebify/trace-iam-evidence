@@ -55,6 +55,28 @@ def test_investigation_and_evidence_round_trip_without_loss(tmp_path: Path) -> N
     assert repository.get_investigation(investigation.id) == investigation
 
 
+def test_archive_and_reopen_restore_the_prior_lifecycle_state(tmp_path: Path) -> None:
+    database_path = tmp_path / "trace.db"
+    migrate(database_path)
+    repository = InvestigationRepository(sqlite_engine(database_path))
+    reviewed = Investigation(
+        id="investigation-reviewed-1",
+        title="Reviewed access case",
+        scenario_type=ScenarioType.CONDITIONAL_ACCESS,
+        status=InvestigationStatus.REVIEWED,
+    )
+    repository.save_investigation(reviewed)
+
+    archived = repository.archive_investigation(reviewed.id)
+    assert archived.status is InvestigationStatus.ARCHIVED
+    assert archived.pre_archive_status is InvestigationStatus.REVIEWED
+
+    reopened = repository.reopen_investigation(reviewed.id)
+    assert reopened.status is InvestigationStatus.REVIEWED
+    assert reopened.pre_archive_status is None
+    assert repository.get_investigation(reviewed.id) == reopened
+
+
 def test_analysis_runs_are_append_only_and_reports_reload(tmp_path: Path) -> None:
     database_path = tmp_path / "trace.db"
     migrate(database_path)
