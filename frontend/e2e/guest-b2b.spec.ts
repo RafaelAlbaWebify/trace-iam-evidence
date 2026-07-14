@@ -6,7 +6,7 @@ test("operator creates and analyzes a persisted Guest B2B case", async ({ page }
   await expect(page.getByRole("button", { name: "Create investigation" })).toBeEnabled();
 
   await page.getByLabel("Case title").fill("Guest B2B lifecycle review");
-  await page.getByRole("combobox", { name: "Scenario", exact: true }).selectOption("guest_b2b");
+  await page.locator("#case-scenario").selectOption("guest_b2b");
   const createResponsePromise = page.waitForResponse((response) => response.url().endsWith("/api/investigations") && response.request().method() === "POST");
   await page.getByRole("button", { name: "Create investigation" }).click();
   expect((await createResponsePromise).ok()).toBeTruthy();
