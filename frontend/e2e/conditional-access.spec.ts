@@ -1,20 +1,33 @@
 import { expect, test } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 
-test("operator creates a case, analyzes evidence, and manages immutable history", async ({ page }) => {
+test("operator creates, triages, analyzes, reviews, and reopens a real case", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "TRACE IAM Evidence" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Create investigation" })).toBeEnabled();
 
-  await page.getByLabel("Case title").fill("Conditional Access sign-in review");
+  await page.locator("#case-name").fill("Conditional Access sign-in review");
   await page.getByRole("combobox", { name: "Scenario", exact: true }).selectOption("conditional_access");
+  await page.locator("#case-priority").selectOption("high");
+  await page.locator("#case-reference").fill("INC-REDACTED-CA-01");
+  await page.locator("#case-summary").fill("Redacted sign-in failure affecting a managed application.");
   const createResponsePromise = page.waitForResponse((response) => response.url().endsWith("/api/investigations") && response.request().method() === "POST");
   await page.getByRole("button", { name: "Create investigation" }).click();
   expect((await createResponsePromise).ok()).toBeTruthy();
 
   const investigationId = (await page.locator(".active-case code").textContent())?.trim();
   expect(investigationId).toMatch(/^trace-[a-f0-9]{12}$/);
+  await expect(page.getByText("High priority")).toBeVisible();
+  await expect(page.getByText("INC-REDACTED-CA-01")).toBeVisible();
   await expect(page.getByRole("button", { name: "Analyze evidence" })).toBeEnabled();
+
+  await page.locator("#edit-priority").selectOption("critical");
+  await page.locator("#edit-summary").fill("Escalated redacted sign-in failure under active review.");
+  const patchResponsePromise = page.waitForResponse((response) => response.url().endsWith(`/api/investigations/${investigationId}`) && response.request().method() === "PATCH");
+  await page.getByRole("button", { name: "Save case metadata" }).click();
+  expect((await patchResponsePromise).ok()).toBeTruthy();
+  await expect(page.getByText("Critical priority")).toBeVisible();
+  await expect(page.getByText("Case metadata saved without changing immutable analysis runs.")).toBeVisible();
 
   const responsePromise = page.waitForResponse((response) => response.url().includes("analyze-conditional-access-csv"));
   await page.getByRole("button", { name: "Analyze evidence" }).click();
@@ -27,13 +40,20 @@ test("operator creates a case, analyzes evidence, and manages immutable history"
 
   const historyRow = page.getByRole("button", { name: "Conditional Access sign-in review" }).locator("..");
   await expect(historyRow).toContainText("analyzed · 1 run(s)");
+  await expect(historyRow).toContainText("Critical priority");
   await expect(page.getByRole("link", { name: "Export JSON" })).toHaveAttribute("href", `/api/investigations/${investigationId}/runs/1/report.json`);
+
+  const reviewResponsePromise = page.waitForResponse((response) => response.url().endsWith(`/api/investigations/${investigationId}/transition`));
+  await page.getByRole("button", { name: "Mark reviewed" }).click();
+  expect((await reviewResponsePromise).ok()).toBeTruthy();
+  await expect(page.getByText("Lifecycle moved to reviewed.")).toBeVisible();
+  await expect(historyRow).toContainText("reviewed · 1 run(s)");
 
   await historyRow.getByRole("button", { name: "Archive" }).click();
   await page.getByLabel("Show archived investigations").check();
   await expect(page.getByText("archived · 1 run(s)")).toBeVisible();
   await page.getByRole("button", { name: "Reopen" }).click();
-  await expect(page.getByText("analyzed · 1 run(s)")).toBeVisible();
+  await expect(page.getByText("reviewed · 1 run(s)")).toBeVisible();
 
   const jsonReportResponse = await page.request.get(`/api/investigations/${investigationId}/runs/1/report.json`);
   const markdownReportResponse = await page.request.get(`/api/investigations/${investigationId}/runs/1/report.md`);
