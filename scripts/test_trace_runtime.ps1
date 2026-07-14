@@ -8,7 +8,6 @@ $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("trace-runtime-test-{0}
 try {
     Push-Location ([System.IO.Path]::GetTempPath())
     try {
-        & $runtimeScript -Action diagnostics -DataDirectory $tempRoot -SkipInstall
         & $runtimeScript -Action status -DataDirectory $tempRoot -SkipInstall
         & $runtimeScript -Action stop -DataDirectory $tempRoot -SkipInstall
     }
