@@ -6,11 +6,19 @@ from typing import Any, cast
 from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session
 
-from trace_iam.domain import CasePriority, EvidenceFact, Investigation, InvestigationStatus
+from trace_iam.domain import (
+    CasePriority,
+    EvidenceFact,
+    EvidenceItem,
+    Investigation,
+    InvestigationStatus,
+)
 
 from .models import AnalysisRunRecord, InvestigationRecord
 from .serialization import (
     dumps,
+    evidence_items_from_data,
+    evidence_items_to_data,
     facts_from_json,
     facts_to_json,
     investigation_from_json,
@@ -46,6 +54,7 @@ class StoredAnalysisRun:
     created_at: datetime
     ruleset_version: str
     facts: tuple[EvidenceFact, ...]
+    evidence_snapshot: tuple[EvidenceItem, ...]
     findings: list[JsonObject]
     report_json: JsonObject
     report_markdown: str
@@ -64,13 +73,16 @@ class InvestigationRepository:
     def retention_mode(self) -> EvidenceRetentionMode:
         return self._retention_mode
 
-    def _retained_investigation(self, investigation: Investigation) -> Investigation:
+    def _retained_evidence(self, evidence_items: tuple[EvidenceItem, ...]) -> tuple[EvidenceItem, ...]:
         if self._retention_mode is EvidenceRetentionMode.FULL_REDACTED:
-            return investigation
-        retained_items = tuple(
-            replace(item, original_excerpt=None) for item in investigation.evidence_items
+            return evidence_items
+        return tuple(replace(item, original_excerpt=None) for item in evidence_items)
+
+    def _retained_investigation(self, investigation: Investigation) -> Investigation:
+        return replace(
+            investigation,
+            evidence_items=self._retained_evidence(investigation.evidence_items),
         )
-        return replace(investigation, evidence_items=retained_items)
 
     def save_investigation(self, investigation: Investigation) -> None:
         retained = self._retained_investigation(investigation)
@@ -180,12 +192,21 @@ class InvestigationRepository:
         *,
         ruleset_version: str,
         facts: tuple[EvidenceFact, ...],
+        evidence_snapshot: tuple[EvidenceItem, ...],
         findings: list[JsonObject],
         report_json: JsonObject,
         report_markdown: str,
     ) -> StoredAnalysisRun:
         if not ruleset_version.strip():
             raise ValueError("Ruleset version must not be blank")
+        if not evidence_snapshot:
+            raise ValueError("Analysis runs require an evidence snapshot")
+        if any(item.validated_at is None for item in evidence_snapshot):
+            raise ValueError("Analysis runs accept only validated case evidence")
+        retained_snapshot = self._retained_evidence(evidence_snapshot)
+        snapshot_data = evidence_items_to_data(retained_snapshot)
+        stored_report_json = {**report_json, "evidence_snapshot": snapshot_data}
+        stored_report_markdown = self._with_evidence_snapshot(report_markdown, retained_snapshot)
         with Session(self._engine) as session:
             if session.get(InvestigationRecord, investigation_id) is None:
                 raise KeyError(f"Investigation {investigation_id!r} does not exist")
@@ -201,8 +222,8 @@ class InvestigationRepository:
                 ruleset_version=ruleset_version,
                 facts_json=facts_to_json(facts),
                 findings_json=dumps(findings),
-                report_json=dumps(report_json),
-                report_markdown=report_markdown,
+                report_json=dumps(stored_report_json),
+                report_markdown=stored_report_markdown,
             )
             session.add(record)
             session.commit()
@@ -211,9 +232,10 @@ class InvestigationRepository:
                 created_at=created_at,
                 ruleset_version=ruleset_version,
                 facts=facts,
+                evidence_snapshot=retained_snapshot,
                 findings=findings,
-                report_json=report_json,
-                report_markdown=report_markdown,
+                report_json=stored_report_json,
+                report_markdown=stored_report_markdown,
             )
 
     def list_analysis_runs(self, investigation_id: str) -> tuple[StoredAnalysisRun, ...]:
@@ -236,13 +258,31 @@ class InvestigationRepository:
             return None if record is None else self._stored_run(record)
 
     @staticmethod
+    def _with_evidence_snapshot(
+        report_markdown: str,
+        evidence_snapshot: tuple[EvidenceItem, ...],
+    ) -> str:
+        lines = [report_markdown.rstrip(), "", "## Evidence snapshot", ""]
+        for item in evidence_snapshot:
+            captured = item.captured_at.isoformat() if item.captured_at else "not recorded"
+            validated = item.validated_at.isoformat() if item.validated_at else "not validated"
+            lines.append(
+                f"- `{item.id}` — {item.kind.value}; source: {item.source}; "
+                f"reliability: {item.reliability.value}; captured: {captured}; validated: {validated}"
+            )
+        return "\n".join(lines) + "\n"
+
+    @staticmethod
     def _stored_run(record: AnalysisRunRecord) -> StoredAnalysisRun:
+        report_json = cast(JsonObject, loads(record.report_json))
+        raw_snapshot = cast(list[JsonObject], report_json.get("evidence_snapshot", []))
         return StoredAnalysisRun(
             run_number=record.run_number,
             created_at=record.created_at,
             ruleset_version=record.ruleset_version,
             facts=facts_from_json(record.facts_json),
+            evidence_snapshot=evidence_items_from_data(raw_snapshot),
             findings=cast(list[JsonObject], loads(record.findings_json)),
-            report_json=cast(JsonObject, loads(record.report_json)),
+            report_json=report_json,
             report_markdown=record.report_markdown,
         )
