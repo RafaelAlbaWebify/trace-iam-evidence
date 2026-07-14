@@ -32,6 +32,7 @@ type Finding = {
 };
 
 type AnalysisResult = {
+  investigation_id: string;
   run_number: number;
   finding_count: number;
   evaluated_rule_ids: string[];
@@ -80,6 +81,7 @@ export function FindingsWorkspace({ result }: Props) {
   const visible = findings.filter((finding) =>
     (severity === "all" || finding.severity === severity)
     && (confidence === "all" || finding.confidence === confidence));
+  const reportBase = `/api/investigations/${result.investigation_id}/runs/${result.run_number}`;
 
   return <section id="analysis-result" className="findings-workspace" aria-labelledby="findings-title">
     <div className="section-heading"><span>Structured findings workspace</span><h2 id="findings-title">Analysis result</h2></div>
@@ -88,6 +90,10 @@ export function FindingsWorkspace({ result }: Props) {
       <article><span>Findings</span><strong>{result.finding_count}</strong></article>
       <article><span>Rules evaluated</span><strong>{result.evaluated_rule_ids.join(", ") || "None"}</strong></article>
     </div>
+    <nav className="finding-exports" aria-label="Immutable analysis exports">
+      <a href={`${reportBase}/report.json`}>Export immutable JSON</a>
+      <a href={`${reportBase}/report.md`}>Export immutable Markdown</a>
+    </nav>
     <div className="finding-filters" aria-label="Finding filters">
       <label>Severity<select value={severity} onChange={(event) => setSeverity(event.target.value as "all" | Severity)}><option value="all">All severities</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option><option value="info">Info</option></select></label>
       <label>Confidence<select value={confidence} onChange={(event) => setConfidence(event.target.value as "all" | Confidence)}><option value="all">All confidence levels</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select></label>
