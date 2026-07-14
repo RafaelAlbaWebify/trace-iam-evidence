@@ -42,7 +42,7 @@ test("requires a persisted investigation before scenario analysis", async () => 
 });
 
 test("creates and activates a server-generated investigation with operational metadata", async () => {
-  const fetchMock = installApi((url) => url === "/api/investigations" ? response([summaryCase]) : undefined);
+  const fetchMock = installApi((url, init) => url === "/api/investigations" && !init?.method ? response([summaryCase]) : undefined);
   render(<App />); await waitUntilReady();
   fireEvent.click(screen.getByRole("button", { name: "Create investigation" }));
   const caseId = await screen.findByText(createdCase.investigation_id);
@@ -59,7 +59,7 @@ test("adds and validates evidence in the active investigation", async () => {
   let evidence: Array<Record<string, unknown>> = [];
   let detail = { ...createdCase };
   const fetchMock = installApi((url, init) => {
-    if (url === "/api/investigations") return response([summaryCase]);
+    if (url === "/api/investigations" && !init?.method) return response([summaryCase]);
     if (url === `/api/investigations/${createdCase.investigation_id}/evidence` && init?.method === "POST") {
       const body = JSON.parse(String(init.body));
       const item = { ...body, captured_at: null, validated_at: null };
@@ -86,7 +86,7 @@ test("adds and validates evidence in the active investigation", async () => {
 test("edits active case metadata without replacing the case", async () => {
   const updatedCase = { ...createdCase, title: "Escalated access investigation", priority: "critical", summary: "Escalated redacted IAM review." };
   installApi((url, init) => {
-    if (url === "/api/investigations") return response([summaryCase]);
+    if (url === "/api/investigations" && !init?.method) return response([summaryCase]);
     if (url === `/api/investigations/${createdCase.investigation_id}` && init?.method === "PATCH") return response(updatedCase);
     return undefined;
   });
@@ -101,7 +101,7 @@ test("edits active case metadata without replacing the case", async () => {
 
 test("renders structured API validation errors as readable operator guidance", async () => {
   installApi((url, init) => {
-    if (url === "/api/investigations") return response([summaryCase]);
+    if (url === "/api/investigations" && !init?.method) return response([summaryCase]);
     if (url.endsWith("analyze-conditional-access-csv") && init?.method === "POST") return response({ detail: [{ loc: ["body", "csv_text"], msg: "CSV headers do not match the documented contract" }] }, false, 422);
     return undefined;
   });
