@@ -27,6 +27,10 @@ function installApi(overrides?: (url: string, init?: RequestInit) => unknown) {
   return fetchMock;
 }
 
+async function waitUntilReady() {
+  await waitFor(() => expect(screen.getByRole("button", { name: "Create investigation" })).toBeEnabled());
+}
+
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 test("requires a persisted investigation before scenario analysis", async () => {
@@ -39,7 +43,7 @@ test("requires a persisted investigation before scenario analysis", async () => 
 
 test("creates and activates a server-generated investigation with operational metadata", async () => {
   const fetchMock = installApi((url) => url === "/api/investigations" ? response([summaryCase]) : undefined);
-  render(<App />); await screen.findByText("No persisted investigations yet.");
+  render(<App />); await waitUntilReady();
   fireEvent.click(screen.getByRole("button", { name: "Create investigation" }));
   const caseId = await screen.findByText(createdCase.investigation_id);
   const activePanel = caseId.closest(".active-case");
@@ -68,7 +72,7 @@ test("adds and validates evidence in the active investigation", async () => {
     if (url === `/api/investigations/${createdCase.investigation_id}`) return response(detail);
     return undefined;
   });
-  render(<App />); await screen.findByText("No persisted investigations yet.");
+  render(<App />); await waitUntilReady();
   fireEvent.click(screen.getByRole("button", { name: "Create investigation" }));
   fireEvent.click(await screen.findByRole("button", { name: "Add evidence item" }));
   expect(await screen.findByText("evidence-001")).toBeInTheDocument();
@@ -86,7 +90,7 @@ test("edits active case metadata without replacing the case", async () => {
     if (url === `/api/investigations/${createdCase.investigation_id}` && init?.method === "PATCH") return response(updatedCase);
     return undefined;
   });
-  render(<App />); await screen.findByText("No persisted investigations yet."); fireEvent.click(screen.getByRole("button", { name: "Create investigation" }));
+  render(<App />); await waitUntilReady(); fireEvent.click(screen.getByRole("button", { name: "Create investigation" }));
   await screen.findByText(createdCase.investigation_id);
   fireEvent.change(screen.getByLabelText("Case title", { selector: "#edit-title" }), { target: { value: updatedCase.title } });
   fireEvent.change(screen.getByLabelText("Priority", { selector: "#edit-priority" }), { target: { value: "critical" } });
@@ -101,7 +105,7 @@ test("renders structured API validation errors as readable operator guidance", a
     if (url.endsWith("analyze-conditional-access-csv") && init?.method === "POST") return response({ detail: [{ loc: ["body", "csv_text"], msg: "CSV headers do not match the documented contract" }] }, false, 422);
     return undefined;
   });
-  render(<App />); await screen.findByText("No persisted investigations yet."); fireEvent.click(screen.getByRole("button", { name: "Create investigation" }));
+  render(<App />); await waitUntilReady(); fireEvent.click(screen.getByRole("button", { name: "Create investigation" }));
   fireEvent.click(await screen.findByRole("button", { name: "Analyze evidence" }));
   const alert = await screen.findByRole("alert");
   expect(alert).toHaveTextContent("csv_text: CSV headers do not match the documented contract");
