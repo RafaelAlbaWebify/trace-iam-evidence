@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import shutil
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,13 +27,18 @@ def verify_database(path: Path) -> dict[str, object]:
     }
 
 
-def backup_database(source: Path, destination: Path) -> Path:
-    if not source.exists():
-        raise FileNotFoundError(f"TRACE database does not exist: {source}")
+def _sqlite_copy(source: Path, destination: Path) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(source) as source_connection:
         with sqlite3.connect(destination) as destination_connection:
             source_connection.backup(destination_connection)
+
+
+def backup_database(source: Path, destination: Path) -> Path:
+    if not source.exists():
+        raise FileNotFoundError(f"TRACE database does not exist: {source}")
+    destination.unlink(missing_ok=True)
+    _sqlite_copy(source, destination)
     result = verify_database(destination)
     if result["integrity"] != "ok":
         destination.unlink(missing_ok=True)
@@ -46,30 +50,24 @@ def restore_database(source: Path, destination: Path) -> Path:
     result = verify_database(source)
     if result["integrity"] != "ok":
         raise RuntimeError(f"Restore source is not a valid SQLite database: {source}")
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    temporary = destination.with_suffix(destination.suffix + ".restore-tmp")
-    previous = destination.with_suffix(destination.suffix + ".restore-previous")
-    temporary.unlink(missing_ok=True)
-    previous.unlink(missing_ok=True)
-    shutil.copy2(source, temporary)
-    if verify_database(temporary)["integrity"] != "ok":
-        temporary.unlink(missing_ok=True)
-        raise RuntimeError("Temporary restore copy failed integrity verification")
 
+    previous = destination.with_suffix(destination.suffix + ".restore-previous")
+    previous.unlink(missing_ok=True)
     had_destination = destination.exists()
+    if had_destination:
+        backup_database(destination, previous)
+
     try:
-        if had_destination:
-            destination.replace(previous)
-        temporary.replace(destination)
+        _sqlite_copy(source, destination)
         if verify_database(destination)["integrity"] != "ok":
             raise RuntimeError("Restored database failed integrity verification")
     except Exception:
-        destination.unlink(missing_ok=True)
         if previous.exists():
-            previous.replace(destination)
+            _sqlite_copy(previous, destination)
+        elif not had_destination:
+            destination.unlink(missing_ok=True)
         raise
     finally:
-        temporary.unlink(missing_ok=True)
         previous.unlink(missing_ok=True)
     return destination
 
