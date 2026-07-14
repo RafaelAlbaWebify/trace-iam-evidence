@@ -20,7 +20,7 @@ test("operator creates and analyzes a persisted resource-assignment case", async
   expect((await responsePromise).ok()).toBeTruthy();
 
   await expect(page.getByRole("heading", { name: "Analysis result" })).toBeVisible();
-  const summary = page.getByRole("region", { name: "Analysis result" }).getByLabel("Analysis summary");
+  const summary = page.locator(".result-summary");
   await expect(summary).toContainText("RA-001");
   await expect(page.getByTestId("markdown-report")).toContainText("Do not grant broad or tenant-wide privileges");
 
