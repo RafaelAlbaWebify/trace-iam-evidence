@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 
 from trace_iam.api import (
+    comparison_router,
     evidence_router,
     guest_b2b_router,
     investigation_router,
@@ -22,6 +23,7 @@ app.include_router(evidence_router)
 app.include_router(resource_assignment_router)
 app.include_router(guest_b2b_router)
 app.include_router(timeline_router)
+app.include_router(comparison_router)
 
 
 @app.get("/api/health", response_model=HealthResponse)
