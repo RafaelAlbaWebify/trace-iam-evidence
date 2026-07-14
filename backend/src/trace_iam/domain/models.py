@@ -34,6 +34,13 @@ class EvidenceKind(StrEnum):
     GENERIC_TEXT_EXCERPT = "generic_text_excerpt"
 
 
+class EvidenceReliability(StrEnum):
+    UNKNOWN = "unknown"
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
 class Confidence(StrEnum):
     LOW = "low"
     MEDIUM = "medium"
@@ -57,12 +64,19 @@ class EvidenceItem:
     resource: str | None = None
     redacted: bool = True
     original_excerpt: str | None = None
+    reliability: EvidenceReliability = EvidenceReliability.UNKNOWN
+    notes: str | None = None
+    validated_at: datetime | None = None
 
     def __post_init__(self) -> None:
         if not self.id.strip():
             raise ValueError("Evidence item id must not be blank")
         if not self.source.strip():
             raise ValueError("Evidence source must not be blank")
+        if not self.redacted:
+            raise ValueError("TRACE accepts only redacted evidence")
+        if self.notes is not None and not self.notes.strip():
+            raise ValueError("Evidence notes must not be blank")
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,6 +149,9 @@ class Investigation:
             raise ValueError("Investigation summary must not be blank")
         if self.pre_archive_status is InvestigationStatus.ARCHIVED:
             raise ValueError("Pre-archive status cannot itself be archived")
+        evidence_ids = [item.id for item in self.evidence_items]
+        if len(evidence_ids) != len(set(evidence_ids)):
+            raise ValueError("Evidence item ids must be unique within an investigation")
 
 
 @dataclass(frozen=True, slots=True)

@@ -10,6 +10,7 @@ from trace_iam.domain import (
     EvidenceFact,
     EvidenceItem,
     EvidenceKind,
+    EvidenceReliability,
     Investigation,
     InvestigationStatus,
     ScenarioType,
@@ -46,13 +47,24 @@ def investigation_from_json(payload: str) -> Investigation:
             id=cast(str, item["id"]),
             kind=EvidenceKind(cast(str, item["kind"])),
             source=cast(str, item["source"]),
-            captured_at=datetime.fromisoformat(cast(str, item["captured_at"]))
-            if item["captured_at"]
-            else None,
-            subject=cast(str | None, item["subject"]),
-            resource=cast(str | None, item["resource"]),
-            redacted=cast(bool, item["redacted"]),
-            original_excerpt=cast(str | None, item["original_excerpt"]),
+            captured_at=(
+                datetime.fromisoformat(cast(str, item["captured_at"]))
+                if item.get("captured_at")
+                else None
+            ),
+            subject=cast(str | None, item.get("subject")),
+            resource=cast(str | None, item.get("resource")),
+            redacted=cast(bool, item.get("redacted", True)),
+            original_excerpt=cast(str | None, item.get("original_excerpt")),
+            reliability=EvidenceReliability(
+                cast(str, item.get("reliability", EvidenceReliability.UNKNOWN.value))
+            ),
+            notes=cast(str | None, item.get("notes")),
+            validated_at=(
+                datetime.fromisoformat(cast(str, item["validated_at"]))
+                if item.get("validated_at")
+                else None
+            ),
         )
         for item in raw_items
     )
@@ -65,8 +77,8 @@ def investigation_from_json(payload: str) -> Investigation:
         priority=CasePriority(cast(str, data.get("priority", CasePriority.NORMAL.value))),
         external_reference=cast(str | None, data.get("external_reference")),
         summary=cast(str | None, data.get("summary")),
-        affected_subject=cast(str | None, data["affected_subject"]),
-        affected_resource=cast(str | None, data["affected_resource"]),
+        affected_subject=cast(str | None, data.get("affected_subject")),
+        affected_resource=cast(str | None, data.get("affected_resource")),
         evidence_items=evidence_items,
         created_at=datetime.fromisoformat(cast(str, data["created_at"])),
         pre_archive_status=(
@@ -87,9 +99,11 @@ def facts_from_json(payload: str) -> tuple[EvidenceFact, ...]:
             value=cast(str | int | bool, item["value"]),
             source_evidence_id=cast(str, item["source_evidence_id"]),
             certainty=Confidence(cast(str, item["certainty"])),
-            observed_at=datetime.fromisoformat(cast(str, item["observed_at"]))
-            if item["observed_at"]
-            else None,
+            observed_at=(
+                datetime.fromisoformat(cast(str, item["observed_at"]))
+                if item["observed_at"]
+                else None
+            ),
         )
         for item in items
     )
