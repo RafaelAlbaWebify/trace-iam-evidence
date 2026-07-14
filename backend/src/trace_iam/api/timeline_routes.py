@@ -3,7 +3,9 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
 
-from trace_iam.persistence.runtime import get_timeline_repository
+from trace_iam.domain import InvestigationStatus
+from trace_iam.persistence.repository import InvestigationRepository
+from trace_iam.persistence.runtime import get_repository, get_timeline_repository
 from trace_iam.persistence.timeline import (
     TimelineActorType,
     TimelineEvent,
@@ -75,7 +77,13 @@ def add_operator_note(
     investigation_id: str,
     request: OperatorNoteRequest,
     repository: TimelineRepository = Depends(get_timeline_repository),
+    investigation_repository: InvestigationRepository = Depends(get_repository),
 ) -> TimelineEventResponse:
+    investigation = investigation_repository.get_investigation(investigation_id)
+    if investigation is None:
+        raise HTTPException(status_code=404, detail="Investigation not found")
+    if investigation.status is InvestigationStatus.ARCHIVED:
+        raise HTTPException(status_code=409, detail="Archived investigations cannot receive timeline notes")
     try:
         event = repository.append(
             investigation_id,
