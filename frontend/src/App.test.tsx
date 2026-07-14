@@ -45,11 +45,12 @@ test("creates and activates a server-generated investigation with operational me
   await screen.findByText("No persisted investigations yet.");
   fireEvent.click(screen.getByRole("button", { name: "Create investigation" }));
 
-  const activePanel = await screen.findByRole("status", { name: "" });
-  expect(within(activePanel).getByText("Active investigation")).toBeInTheDocument();
-  expect(within(activePanel).getByText("trace-a1b2c3d4e5f6")).toBeInTheDocument();
-  expect(within(activePanel).getByText("Normal priority")).toBeInTheDocument();
-  expect(within(activePanel).getByText("INC-REDACTED-001")).toBeInTheDocument();
+  const caseId = await screen.findByText("trace-a1b2c3d4e5f6");
+  const activePanel = caseId.closest(".active-case");
+  expect(activePanel).not.toBeNull();
+  expect(within(activePanel as HTMLElement).getByText("Active investigation")).toBeInTheDocument();
+  expect(within(activePanel as HTMLElement).getByText("Normal priority")).toBeInTheDocument();
+  expect(within(activePanel as HTMLElement).getByText("INC-REDACTED-001")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Analyze evidence" })).toBeEnabled();
   expect(screen.getByRole("button", { name: "Select a resource-assignment case" })).toBeDisabled();
 
