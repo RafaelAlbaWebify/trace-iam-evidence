@@ -62,8 +62,19 @@ test("operator manages validated case evidence before immutable analysis", async
   const markdownReportResponse = await page.request.get(`/api/investigations/${investigationId}/runs/1/report.md`);
   expect(jsonReportResponse.ok()).toBeTruthy();
   expect(markdownReportResponse.ok()).toBeTruthy();
+  const jsonReport = await jsonReportResponse.json();
+  const markdownReport = await markdownReportResponse.text();
+  expect(jsonReport.evidence_snapshot).toHaveLength(1);
+  expect(jsonReport.evidence_snapshot[0]).toMatchObject({
+    id: "signin-log-001",
+    source: "Redacted Entra sign-in log export",
+    reliability: "high",
+  });
+  expect(jsonReport.evidence_snapshot[0].validated_at).toBeTruthy();
+  expect(markdownReport).toContain("## Evidence snapshot");
+  expect(markdownReport).toContain("signin-log-001");
   await mkdir("e2e-artifacts", { recursive: true });
-  await writeFile("e2e-artifacts/report.json", JSON.stringify(await jsonReportResponse.json(), null, 2));
-  await writeFile("e2e-artifacts/report.md", await markdownReportResponse.text());
+  await writeFile("e2e-artifacts/report.json", JSON.stringify(jsonReport, null, 2));
+  await writeFile("e2e-artifacts/report.md", markdownReport);
   await page.screenshot({ path: "e2e-artifacts/evidence-workspace.png", fullPage: true });
 });
