@@ -1,185 +1,40 @@
 import { FormEvent, useEffect, useState } from "react";
 
+import { RunComparisonWorkspace } from "./RunComparisonWorkspace";
 import { TimelineWorkspace } from "./TimelineWorkspace";
 
 type EvidenceKind = "manual_structured" | "entra_signin_csv" | "generic_text_excerpt";
 type EvidenceReliability = "unknown" | "low" | "medium" | "high";
 
-type EvidenceItem = {
-  evidence_id: string;
-  kind: EvidenceKind;
-  source: string;
-  captured_at: string | null;
-  subject: string | null;
-  resource: string | null;
-  excerpt: string | null;
-  reliability: EvidenceReliability;
-  notes: string | null;
-  redacted: boolean;
-  validated_at: string | null;
-};
+type EvidenceItem = { evidence_id: string; kind: EvidenceKind; source: string; captured_at: string | null; subject: string | null; resource: string | null; excerpt: string | null; reliability: EvidenceReliability; notes: string | null; redacted: boolean; validated_at: string | null };
+type ActiveCase = { investigation_id: string; status: string; evidence_item_count: number; analysis_run_count: number };
+type Props = { activeCase: ActiveCase | null; unavailable: boolean; onCaseChanged: () => Promise<void>; onError: (message: string) => void; onNotice: (message: string) => void };
 
-type ActiveCase = {
-  investigation_id: string;
-  status: string;
-  evidence_item_count: number;
-  analysis_run_count: number;
-};
-
-type Props = {
-  activeCase: ActiveCase | null;
-  unavailable: boolean;
-  onCaseChanged: () => Promise<void>;
-  onError: (message: string) => void;
-  onNotice: (message: string) => void;
-};
-
-function messageFrom(payload: unknown, fallback: string): string {
-  if (payload && typeof payload === "object" && typeof (payload as { detail?: unknown }).detail === "string") {
-    return (payload as { detail: string }).detail;
-  }
-  return fallback;
-}
-
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, init);
-  let payload: unknown = null;
-  try {
-    payload = await response.json();
-  } catch {
-    // DELETE returns 204 without a body.
-  }
-  if (!response.ok) throw new Error(messageFrom(payload, `Evidence request failed with HTTP ${response.status}.`));
-  return payload as T;
-}
-
-function label(value: string): string {
-  return value.replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase());
-}
+function messageFrom(payload: unknown, fallback: string): string { if (payload && typeof payload === "object" && typeof (payload as { detail?: unknown }).detail === "string") return (payload as { detail: string }).detail; return fallback; }
+async function request<T>(path: string, init?: RequestInit): Promise<T> { const response = await fetch(path, init); let payload: unknown = null; try { payload = await response.json(); } catch { /* DELETE returns 204 */ } if (!response.ok) throw new Error(messageFrom(payload, `Evidence request failed with HTTP ${response.status}.`)); return payload as T; }
+function label(value: string): string { return value.replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase()); }
 
 export function EvidenceWorkspace({ activeCase, unavailable, onCaseChanged, onError, onNotice }: Props) {
-  const [items, setItems] = useState<EvidenceItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [evidenceId, setEvidenceId] = useState("evidence-001");
-  const [kind, setKind] = useState<EvidenceKind>("generic_text_excerpt");
-  const [source, setSource] = useState("Redacted operator evidence");
-  const [subject, setSubject] = useState("redacted-subject");
-  const [resource, setResource] = useState("Redacted IAM resource");
-  const [excerpt, setExcerpt] = useState("Redacted evidence excerpt for investigation review.");
-  const [reliability, setReliability] = useState<EvidenceReliability>("medium");
-  const [notes, setNotes] = useState("Collected for public-safe local analysis.");
-
-  async function loadEvidence() {
-    if (!activeCase) {
-      setItems([]);
-      return;
-    }
-    setItems(await request<EvidenceItem[]>(`/api/investigations/${activeCase.investigation_id}/evidence`));
-  }
-
-  useEffect(() => {
-    loadEvidence().catch((caught) => onError(caught instanceof Error ? caught.message : "Evidence inventory failed to load"));
-  }, [activeCase?.investigation_id]);
-
-  async function addEvidence(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!activeCase) return;
-    setLoading(true);
-    onError("");
-    try {
-      await request<EvidenceItem>(`/api/investigations/${activeCase.investigation_id}/evidence`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          evidence_id: evidenceId,
-          kind,
-          source,
-          subject: subject || null,
-          resource: resource || null,
-          excerpt: excerpt || null,
-          reliability,
-          notes: notes || null,
-          redacted: true
-        })
-      });
-      await loadEvidence();
-      await onCaseChanged();
-      setEvidenceId(`evidence-${String(items.length + 2).padStart(3, "0")}`);
-      onNotice("Evidence item added to the active investigation.");
-    } catch (caught) {
-      onError(caught instanceof Error ? caught.message : "Evidence item could not be added");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function validateEvidence(item: EvidenceItem) {
-    if (!activeCase) return;
-    setLoading(true);
-    onError("");
-    try {
-      await request<EvidenceItem>(`/api/investigations/${activeCase.investigation_id}/evidence/${encodeURIComponent(item.evidence_id)}/validate`, { method: "POST" });
-      await loadEvidence();
-      await onCaseChanged();
-      onNotice(`Evidence ${item.evidence_id} validated.`);
-    } catch (caught) {
-      onError(caught instanceof Error ? caught.message : "Evidence validation failed");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function deleteEvidence(item: EvidenceItem) {
-    if (!activeCase) return;
-    setLoading(true);
-    onError("");
-    try {
-      await request<null>(`/api/investigations/${activeCase.investigation_id}/evidence/${encodeURIComponent(item.evidence_id)}`, { method: "DELETE" });
-      await loadEvidence();
-      await onCaseChanged();
-      onNotice(`Evidence ${item.evidence_id} removed before analysis.`);
-    } catch (caught) {
-      onError(caught instanceof Error ? caught.message : "Evidence deletion failed");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const locked = !activeCase || activeCase.status === "archived";
-  const busy = unavailable || loading;
-
+  const [items, setItems] = useState<EvidenceItem[]>([]); const [loading, setLoading] = useState(false);
+  const [evidenceId, setEvidenceId] = useState("evidence-001"); const [kind, setKind] = useState<EvidenceKind>("generic_text_excerpt"); const [source, setSource] = useState("Redacted operator evidence"); const [subject, setSubject] = useState("redacted-subject"); const [resource, setResource] = useState("Redacted IAM resource"); const [excerpt, setExcerpt] = useState("Redacted evidence excerpt for investigation review."); const [reliability, setReliability] = useState<EvidenceReliability>("medium"); const [notes, setNotes] = useState("Collected for public-safe local analysis.");
+  async function loadEvidence() { if (!activeCase) { setItems([]); return; } setItems(await request<EvidenceItem[]>(`/api/investigations/${activeCase.investigation_id}/evidence`)); }
+  useEffect(() => { loadEvidence().catch((caught) => onError(caught instanceof Error ? caught.message : "Evidence inventory failed to load")); }, [activeCase?.investigation_id]);
+  async function addEvidence(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (!activeCase) return; setLoading(true); onError(""); try { await request<EvidenceItem>(`/api/investigations/${activeCase.investigation_id}/evidence`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ evidence_id: evidenceId, kind, source, subject: subject || null, resource: resource || null, excerpt: excerpt || null, reliability, notes: notes || null, redacted: true }) }); await loadEvidence(); await onCaseChanged(); setEvidenceId(`evidence-${String(items.length + 2).padStart(3, "0")}`); onNotice("Evidence item added to the active investigation."); } catch (caught) { onError(caught instanceof Error ? caught.message : "Evidence item could not be added"); } finally { setLoading(false); } }
+  async function validateEvidence(item: EvidenceItem) { if (!activeCase) return; setLoading(true); onError(""); try { await request<EvidenceItem>(`/api/investigations/${activeCase.investigation_id}/evidence/${encodeURIComponent(item.evidence_id)}/validate`, { method: "POST" }); await loadEvidence(); await onCaseChanged(); onNotice(`Evidence ${item.evidence_id} validated.`); } catch (caught) { onError(caught instanceof Error ? caught.message : "Evidence validation failed"); } finally { setLoading(false); } }
+  async function deleteEvidence(item: EvidenceItem) { if (!activeCase) return; setLoading(true); onError(""); try { await request<null>(`/api/investigations/${activeCase.investigation_id}/evidence/${encodeURIComponent(item.evidence_id)}`, { method: "DELETE" }); await loadEvidence(); await onCaseChanged(); onNotice(`Evidence ${item.evidence_id} removed before analysis.`); } catch (caught) { onError(caught instanceof Error ? caught.message : "Evidence deletion failed"); } finally { setLoading(false); } }
+  const locked = !activeCase || activeCase.status === "archived"; const busy = unavailable || loading;
   return <>
     <section id="evidence-workspace" className="evidence-workspace" aria-labelledby="evidence-workspace-title">
       <div className="section-heading"><span>Evidence control</span><h2 id="evidence-workspace-title">Active-case evidence inventory</h2></div>
       {!activeCase ? <p className="empty-state">Create or open an investigation to manage its evidence inventory.</p> : <>
-        <div className="evidence-summary" aria-label="Evidence inventory summary">
-          <article><span>Items</span><strong>{items.length}</strong></article>
-          <article><span>Validated</span><strong>{items.filter((item) => item.validated_at).length}</strong></article>
-          <article><span>Case state</span><strong>{label(activeCase.status)}</strong></article>
-        </div>
+        <div className="evidence-summary" aria-label="Evidence inventory summary"><article><span>Items</span><strong>{items.length}</strong></article><article><span>Validated</span><strong>{items.filter((item) => item.validated_at).length}</strong></article><article><span>Case state</span><strong>{label(activeCase.status)}</strong></article></div>
         <form className="evidence-form" onSubmit={addEvidence}>
-          <div><label htmlFor="evidence-id">Evidence ID</label><input id="evidence-id" value={evidenceId} onChange={(event) => setEvidenceId(event.target.value)} required maxLength={120} /></div>
-          <div><label htmlFor="evidence-kind">Evidence type</label><select id="evidence-kind" value={kind} onChange={(event) => setKind(event.target.value as EvidenceKind)}><option value="generic_text_excerpt">Log or text excerpt</option><option value="manual_structured">Structured observation</option><option value="entra_signin_csv">Entra sign-in CSV reference</option></select></div>
-          <div><label htmlFor="evidence-source">Redacted source</label><input id="evidence-source" value={source} onChange={(event) => setSource(event.target.value)} required /></div>
-          <div><label htmlFor="evidence-reliability">Reliability</label><select id="evidence-reliability" value={reliability} onChange={(event) => setReliability(event.target.value as EvidenceReliability)}><option value="unknown">Unknown</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></div>
-          <div><label htmlFor="evidence-subject">Redacted subject</label><input id="evidence-subject" value={subject} onChange={(event) => setSubject(event.target.value)} /></div>
-          <div><label htmlFor="evidence-resource">Redacted resource</label><input id="evidence-resource" value={resource} onChange={(event) => setResource(event.target.value)} /></div>
-          <div className="wide-field"><label htmlFor="evidence-excerpt">Redacted excerpt</label><textarea id="evidence-excerpt" rows={4} value={excerpt} onChange={(event) => setExcerpt(event.target.value)} /></div>
-          <div className="wide-field"><label htmlFor="evidence-notes">Redacted operator notes</label><textarea id="evidence-notes" rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} /></div>
-          <button type="submit" disabled={busy || locked}>{locked ? "Reopen case to add evidence" : "Add evidence item"}</button>
+          <div><label htmlFor="evidence-id">Evidence ID</label><input id="evidence-id" value={evidenceId} onChange={(event) => setEvidenceId(event.target.value)} required maxLength={120} /></div><div><label htmlFor="evidence-kind">Evidence type</label><select id="evidence-kind" value={kind} onChange={(event) => setKind(event.target.value as EvidenceKind)}><option value="generic_text_excerpt">Log or text excerpt</option><option value="manual_structured">Structured observation</option><option value="entra_signin_csv">Entra sign-in CSV reference</option></select></div><div><label htmlFor="evidence-source">Redacted source</label><input id="evidence-source" value={source} onChange={(event) => setSource(event.target.value)} required /></div><div><label htmlFor="evidence-reliability">Reliability</label><select id="evidence-reliability" value={reliability} onChange={(event) => setReliability(event.target.value as EvidenceReliability)}><option value="unknown">Unknown</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></div><div><label htmlFor="evidence-subject">Redacted subject</label><input id="evidence-subject" value={subject} onChange={(event) => setSubject(event.target.value)} /></div><div><label htmlFor="evidence-resource">Redacted resource</label><input id="evidence-resource" value={resource} onChange={(event) => setResource(event.target.value)} /></div><div className="wide-field"><label htmlFor="evidence-excerpt">Redacted excerpt</label><textarea id="evidence-excerpt" rows={4} value={excerpt} onChange={(event) => setExcerpt(event.target.value)} /></div><div className="wide-field"><label htmlFor="evidence-notes">Redacted operator notes</label><textarea id="evidence-notes" rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} /></div><button type="submit" disabled={busy || locked}>{locked ? "Reopen case to add evidence" : "Add evidence item"}</button>
         </form>
-        {items.length === 0 ? <p className="empty-state">No persisted evidence items yet.</p> : <ul className="evidence-list">{items.map((item) => <li key={item.evidence_id}>
-          <div className="evidence-card-heading"><strong>{item.evidence_id}</strong><span className={item.validated_at ? "validated" : "pending"}>{item.validated_at ? "Validated" : "Pending validation"}</span></div>
-          <dl><div><dt>Type</dt><dd>{label(item.kind)}</dd></div><div><dt>Source</dt><dd>{item.source}</dd></div><div><dt>Reliability</dt><dd>{label(item.reliability)}</dd></div>{item.subject && <div><dt>Subject</dt><dd>{item.subject}</dd></div>}{item.resource && <div><dt>Resource</dt><dd>{item.resource}</dd></div>}</dl>
-          {item.excerpt && <p className="evidence-excerpt">{item.excerpt}</p>}
-          {item.notes && <small>{item.notes}</small>}
-          <div className="case-actions">
-            <button type="button" disabled={busy || locked || Boolean(item.validated_at)} onClick={() => validateEvidence(item)}>{item.validated_at ? "Evidence validated" : "Validate evidence"}</button>
-            <button type="button" className="secondary" disabled={busy || locked || activeCase.analysis_run_count > 0} onClick={() => deleteEvidence(item)}>{activeCase.analysis_run_count > 0 ? "Protected by immutable run" : "Delete evidence"}</button>
-          </div>
-        </li>)}</ul>}
+        {items.length === 0 ? <p className="empty-state">No persisted evidence items yet.</p> : <ul className="evidence-list">{items.map((item) => <li key={item.evidence_id}><div className="evidence-card-heading"><strong>{item.evidence_id}</strong><span className={item.validated_at ? "validated" : "pending"}>{item.validated_at ? "Validated" : "Pending validation"}</span></div><dl><div><dt>Type</dt><dd>{label(item.kind)}</dd></div><div><dt>Source</dt><dd>{item.source}</dd></div><div><dt>Reliability</dt><dd>{label(item.reliability)}</dd></div>{item.subject && <div><dt>Subject</dt><dd>{item.subject}</dd></div>}{item.resource && <div><dt>Resource</dt><dd>{item.resource}</dd></div>}</dl>{item.excerpt && <p className="evidence-excerpt">{item.excerpt}</p>}{item.notes && <small>{item.notes}</small>}<div className="case-actions"><button type="button" disabled={busy || locked || Boolean(item.validated_at)} onClick={() => validateEvidence(item)}>{item.validated_at ? "Evidence validated" : "Validate evidence"}</button><button type="button" className="secondary" disabled={busy || locked || activeCase.analysis_run_count > 0} onClick={() => deleteEvidence(item)}>{activeCase.analysis_run_count > 0 ? "Protected by immutable run" : "Delete evidence"}</button></div></li>)}</ul>}
       </>}
     </section>
     <TimelineWorkspace activeCase={activeCase} unavailable={unavailable} onError={onError} onNotice={onNotice} />
+    <RunComparisonWorkspace activeCase={activeCase} unavailable={unavailable} onError={onError} />
   </>;
 }
