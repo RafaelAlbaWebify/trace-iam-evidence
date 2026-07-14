@@ -15,10 +15,11 @@ test("operator creates, triages, analyzes, reviews, and reopens a real case", as
   await page.getByRole("button", { name: "Create investigation" }).click();
   expect((await createResponsePromise).ok()).toBeTruthy();
 
-  const investigationId = (await page.locator(".active-case code").textContent())?.trim();
+  const activeCase = page.locator(".active-case");
+  const investigationId = (await activeCase.locator("code").textContent())?.trim();
   expect(investigationId).toMatch(/^trace-[a-f0-9]{12}$/);
-  await expect(page.getByText("High priority")).toBeVisible();
-  await expect(page.getByText("INC-REDACTED-CA-01")).toBeVisible();
+  await expect(activeCase.getByText("High priority")).toBeVisible();
+  await expect(activeCase.getByText("INC-REDACTED-CA-01")).toBeVisible();
   await expect(page.getByRole("button", { name: "Analyze evidence" })).toBeEnabled();
 
   await page.locator("#edit-priority").selectOption("critical");
@@ -26,7 +27,7 @@ test("operator creates, triages, analyzes, reviews, and reopens a real case", as
   const patchResponsePromise = page.waitForResponse((response) => response.url().endsWith(`/api/investigations/${investigationId}`) && response.request().method() === "PATCH");
   await page.getByRole("button", { name: "Save case metadata" }).click();
   expect((await patchResponsePromise).ok()).toBeTruthy();
-  await expect(page.getByText("Critical priority")).toBeVisible();
+  await expect(activeCase.getByText("Critical priority")).toBeVisible();
   await expect(page.getByText("Case metadata saved without changing immutable analysis runs.")).toBeVisible();
 
   const responsePromise = page.waitForResponse((response) => response.url().includes("analyze-conditional-access-csv"));
