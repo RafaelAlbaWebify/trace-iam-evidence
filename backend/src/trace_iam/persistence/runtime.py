@@ -7,6 +7,7 @@ from alembic.config import Config
 
 from .database import sqlite_engine
 from .repository import EvidenceRetentionMode, InvestigationRepository
+from .timeline import TimelineRepository
 
 
 def _backend_root() -> Path:
@@ -44,5 +45,13 @@ def get_repository() -> InvestigationRepository:
     return InvestigationRepository(sqlite_engine(path), retention_mode=retention_mode())
 
 
+@lru_cache(maxsize=1)
+def get_timeline_repository() -> TimelineRepository:
+    path = database_path()
+    migrate_database(path)
+    return TimelineRepository(sqlite_engine(path))
+
+
 def reset_repository_cache() -> None:
     get_repository.cache_clear()
+    get_timeline_repository.cache_clear()
