@@ -47,7 +47,8 @@ afterEach(cleanup);
 
 test("presents structured evidence, safe checks, non-actions and raw reports", () => {
   render(<FindingsWorkspace result={result} />);
-  expect(screen.getByRole("heading", { name: "Structured findings workspace" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Analysis result" })).toBeInTheDocument();
+  expect(screen.getByText("Structured findings workspace")).toBeInTheDocument();
   const highCard = screen.getByRole("heading", { name: "Conditional Access blocked the sign-in" }).closest("article");
   expect(highCard).not.toBeNull();
   expect(within(highCard as HTMLElement).getByText("high severity")).toBeInTheDocument();
