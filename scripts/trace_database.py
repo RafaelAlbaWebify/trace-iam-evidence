@@ -4,6 +4,7 @@ import argparse
 import json
 import shutil
 import sqlite3
+from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -11,7 +12,7 @@ from pathlib import Path
 def verify_database(path: Path) -> dict[str, object]:
     if not path.exists():
         return {"exists": False, "path": str(path), "integrity": "missing", "size_bytes": 0}
-    with sqlite3.connect(path) as connection:
+    with closing(sqlite3.connect(path)) as connection:
         integrity = connection.execute("PRAGMA integrity_check").fetchone()[0]
         tables = [
             row[0]
@@ -30,8 +31,8 @@ def verify_database(path: Path) -> dict[str, object]:
 
 def _sqlite_copy(source: Path, destination: Path) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(source) as source_connection:
-        with sqlite3.connect(destination) as destination_connection:
+    with closing(sqlite3.connect(source)) as source_connection:
+        with closing(sqlite3.connect(destination)) as destination_connection:
             source_connection.backup(destination_connection)
 
 
