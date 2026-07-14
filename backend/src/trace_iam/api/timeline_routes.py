@@ -40,6 +40,19 @@ class OperatorNoteRequest(BaseModel):
         return stripped
 
 
+class ReportExportEventRequest(BaseModel):
+    run_number: int = Field(ge=1)
+    report_format: str
+
+    @field_validator("report_format")
+    @classmethod
+    def validate_report_format(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in {"json", "markdown"}:
+            raise ValueError("Report format must be json or markdown")
+        return normalized
+
+
 def _response(event: TimelineEvent) -> TimelineEventResponse:
     return TimelineEventResponse(
         event_id=event.event_id,
@@ -92,6 +105,38 @@ def add_operator_note(
             actor_label=request.author,
             summary=request.note,
             details={"redacted": True},
+        )
+        return _response(event)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post(
+    "/{investigation_id}/timeline/report-exports",
+    response_model=TimelineEventResponse,
+    status_code=201,
+)
+def record_report_export(
+    investigation_id: str,
+    request: ReportExportEventRequest,
+    repository: TimelineRepository = Depends(get_timeline_repository),
+    investigation_repository: InvestigationRepository = Depends(get_repository),
+) -> TimelineEventResponse:
+    run = investigation_repository.get_analysis_run(investigation_id, request.run_number)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Analysis run not found")
+    try:
+        event = repository.append(
+            investigation_id,
+            event_type=TimelineEventType.REPORT_EXPORTED,
+            actor_type=TimelineActorType.OPERATOR,
+            actor_label="Local operator",
+            summary=f"Run {request.run_number} {request.report_format} report exported.",
+            details={
+                "run_number": request.run_number,
+                "report_format": request.report_format,
+                "ruleset_version": run.ruleset_version,
+            },
         )
         return _response(event)
     except KeyError as exc:

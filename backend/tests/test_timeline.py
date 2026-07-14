@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 
 from alembic import command
@@ -5,7 +6,15 @@ from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, inspect
 
-from trace_iam.domain import Investigation, ScenarioType
+from trace_iam.domain import (
+    Confidence,
+    EvidenceFact,
+    EvidenceItem,
+    EvidenceKind,
+    Investigation,
+    InvestigationStatus,
+    ScenarioType,
+)
 from trace_iam.main import app
 from trace_iam.persistence import InvestigationRepository, sqlite_engine
 from trace_iam.persistence.runtime import get_repository, get_timeline_repository
@@ -110,5 +119,57 @@ def test_archived_case_rejects_operator_notes(tmp_path: Path) -> None:
         )
         assert response.status_code == 409
         assert response.json()["detail"].startswith("Archived investigations")
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_report_export_is_recorded_as_operator_timeline_event(tmp_path: Path) -> None:
+    _, investigation_repository, timeline_repository = repositories(tmp_path)
+    validated_at = datetime(2026, 7, 14, 10, 0)
+    evidence = EvidenceItem(
+        id="timeline-export-evidence",
+        kind=EvidenceKind.GENERIC_TEXT_EXCERPT,
+        source="Redacted export proof",
+        validated_at=validated_at,
+    )
+    case = Investigation(
+        id="trace-timeline-export-001",
+        title="Timeline export proof",
+        scenario_type=ScenarioType.CONDITIONAL_ACCESS,
+        status=InvestigationStatus.EVIDENCE_VALIDATED,
+        evidence_items=(evidence,),
+    )
+    fact = EvidenceFact(
+        fact_type="conditional_access_failed",
+        value=True,
+        source_evidence_id=evidence.id,
+        certainty=Confidence.HIGH,
+    )
+    investigation_repository.save_investigation(case)
+    investigation_repository.append_analysis_run(
+        case.id,
+        ruleset_version="CA-001@1.0.0",
+        facts=(fact,),
+        findings=[{"rule_id": "CA-001"}],
+        report_json={"investigation_id": case.id},
+        report_markdown="# Export proof",
+    )
+    app.dependency_overrides[get_repository] = lambda: investigation_repository
+    app.dependency_overrides[get_timeline_repository] = lambda: timeline_repository
+    client = TestClient(app)
+    try:
+        response = client.post(
+            f"/api/investigations/{case.id}/timeline/report-exports",
+            json={"run_number": 1, "report_format": "json"},
+        )
+        assert response.status_code == 201
+        payload = response.json()
+        assert payload["event_type"] == "report_exported"
+        assert payload["actor_type"] == "operator"
+        assert payload["details"] == {
+            "run_number": 1,
+            "report_format": "json",
+            "ruleset_version": "CA-001@1.0.0",
+        }
     finally:
         app.dependency_overrides.clear()

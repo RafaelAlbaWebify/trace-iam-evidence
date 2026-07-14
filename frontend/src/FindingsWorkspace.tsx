@@ -83,6 +83,15 @@ export function FindingsWorkspace({ result }: Props) {
     && (confidence === "all" || finding.confidence === confidence));
   const reportBase = `/api/investigations/${result.investigation_id}/runs/${result.run_number}`;
 
+  function recordExport(reportFormat: "json" | "markdown") {
+    void fetch(`/api/investigations/${result.investigation_id}/timeline/report-exports`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ run_number: result.run_number, report_format: reportFormat }),
+      keepalive: true,
+    });
+  }
+
   return <section id="analysis-result" className="findings-workspace" aria-labelledby="findings-title">
     <div className="section-heading"><span>Structured findings workspace</span><h2 id="findings-title">Analysis result</h2></div>
     <div className="result-summary">
@@ -91,8 +100,8 @@ export function FindingsWorkspace({ result }: Props) {
       <article><span>Rules evaluated</span><strong>{result.evaluated_rule_ids.join(", ") || "None"}</strong></article>
     </div>
     <nav className="finding-exports" aria-label="Immutable analysis exports">
-      <a href={`${reportBase}/report.json`}>Export immutable JSON</a>
-      <a href={`${reportBase}/report.md`}>Export immutable Markdown</a>
+      <a href={`${reportBase}/report.json`} onClick={() => recordExport("json")}>Export immutable JSON</a>
+      <a href={`${reportBase}/report.md`} onClick={() => recordExport("markdown")}>Export immutable Markdown</a>
     </nav>
     <div className="finding-filters" aria-label="Finding filters">
       <label>Severity<select value={severity} onChange={(event) => setSeverity(event.target.value as "all" | Severity)}><option value="all">All severities</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option><option value="info">Info</option></select></label>

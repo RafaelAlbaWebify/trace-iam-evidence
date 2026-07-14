@@ -1,6 +1,6 @@
 import type { ComponentProps } from "react";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, expect, test } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 
 import { FindingsWorkspace } from "./FindingsWorkspace";
 
@@ -44,7 +44,10 @@ const result: ComponentProps<typeof FindingsWorkspace>["result"] = {
   },
 };
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 test("presents structured evidence, safe checks, non-actions and raw reports", () => {
   render(<FindingsWorkspace result={result} />);
@@ -70,4 +73,18 @@ test("filters findings without altering the raw report", () => {
   expect(screen.getByRole("heading", { name: "Additional evidence is required" })).toBeInTheDocument();
   expect(screen.getByText("1 of 2 finding(s)")).toBeInTheDocument();
   expect(screen.getByTestId("json-report")).toHaveTextContent("finding-high");
+});
+
+test("records an explicit audit event when an immutable report is exported", () => {
+  const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 201 }));
+  render(<FindingsWorkspace result={result} />);
+  fireEvent.click(screen.getByRole("link", { name: "Export immutable JSON" }));
+  expect(fetchMock).toHaveBeenCalledWith(
+    "/api/investigations/trace-a1b2c3d4e5f6/timeline/report-exports",
+    expect.objectContaining({
+      method: "POST",
+      keepalive: true,
+      body: JSON.stringify({ run_number: 2, report_format: "json" }),
+    }),
+  );
 });
