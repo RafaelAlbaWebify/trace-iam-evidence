@@ -1,9 +1,10 @@
+import type { ComponentProps } from "react";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, test } from "vitest";
 
 import { FindingsWorkspace } from "./FindingsWorkspace";
 
-const result = {
+const result: ComponentProps<typeof FindingsWorkspace>["result"] = {
   run_number: 2,
   finding_count: 2,
   evaluated_rule_ids: ["CA-001", "CA-002"],
@@ -40,7 +41,7 @@ const result = {
       },
     ],
   },
-} as const;
+};
 
 afterEach(cleanup);
 
