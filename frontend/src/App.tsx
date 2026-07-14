@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useState } from "react";
 import "./App.css";
 import { EvidenceWorkspace } from "./EvidenceWorkspace";
 import { FindingsWorkspace } from "./FindingsWorkspace";
+import { OperationalDashboard } from "./OperationalDashboard";
 
 const SAMPLE_CSV = `Sign-in ID,Conditional Access Status,Failure Reason,Conditional Access Policy
 signin-001,failure,Device is not compliant,Require compliant device`;
@@ -105,12 +106,17 @@ export function App() {
     finally { setLoading(false); }
   }
 
-  async function activateCase(item: InvestigationSummary) {
+  async function activateCaseById(investigationId: string) {
     setError(""); setNotice("");
     try {
-      const detail = await api<InvestigationDetail>(`/api/investigations/${item.investigation_id}`);
+      const detail = await api<InvestigationDetail>(`/api/investigations/${investigationId}`);
       setActiveCase(detail); loadEditor(detail); setSelectedId(detail.investigation_id); setRuns(await api<AnalysisRun[]>(`/api/investigations/${detail.investigation_id}/runs`)); setNotice(`Investigation ${detail.investigation_id} is now active.`);
+      document.getElementById("active-case-control")?.scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (caught) { setError(caught instanceof Error ? caught.message : "Investigation failed to load"); }
+  }
+
+  async function activateCase(item: InvestigationSummary) {
+    await activateCaseById(item.investigation_id);
   }
 
   async function updateCaseMetadata(event: FormEvent<HTMLFormElement>) {
@@ -164,9 +170,11 @@ export function App() {
 
   return <main className="app-shell" aria-busy={unavailable}>
     <header className="hero"><p className="eyebrow">Local-first IAM investigation workbench</p><h1>TRACE IAM Evidence</h1><p>Create operational cases, preserve redacted evidence provenance, execute deterministic rules, and retain immutable history.</p></header>
-    <nav className="scenario-nav" aria-label="Evidence scenarios"><a href="#case-workspace">New case<span>Identity and triage</span></a><a href="#active-case-control">Active case<span>Metadata and lifecycle</span></a><a href="#evidence-workspace">Evidence<span>Inventory and validation</span></a><a href="#conditional_access">Conditional Access<span>CSV sign-in evidence</span></a><a href="#resource_assignment">Resource assignment<span>Entitlement evidence</span></a><a href="#guest_b2b">Guest / B2B<span>Lifecycle evidence</span></a><a href="#analysis-result">Findings<span>Structured evidence outcome</span></a><a href="#history">History<span>Cases, runs and exports</span></a></nav>
+    <nav className="scenario-nav" aria-label="Evidence scenarios"><a href="#operations-dashboard">Dashboard<span>Search and workload</span></a><a href="#case-workspace">New case<span>Identity and triage</span></a><a href="#active-case-control">Active case<span>Metadata and lifecycle</span></a><a href="#evidence-workspace">Evidence<span>Inventory and validation</span></a><a href="#conditional_access">Conditional Access<span>CSV sign-in evidence</span></a><a href="#resource_assignment">Resource assignment<span>Entitlement evidence</span></a><a href="#guest_b2b">Guest / B2B<span>Lifecycle evidence</span></a><a href="#analysis-result">Findings<span>Structured evidence outcome</span></a><a href="#history">History<span>Cases, runs and exports</span></a></nav>
     <aside className="privacy-note" aria-label="Evidence safety guidance"><strong>Use redacted evidence and metadata only.</strong> Replace real names, email addresses, tenant IDs, object IDs, tokens, confidential resource names, and sensitive ticket content before entry.</aside>
     {error && <p className="alert" role="alert"><strong>TRACE could not complete the request.</strong><span>{error}</span></p>}{notice && <p className="status" role="status">{notice}</p>}
+
+    <OperationalDashboard onOpenCase={activateCaseById} onError={setError} />
 
     <section id="case-workspace" className="case-workspace" aria-labelledby="case-title"><div className="section-heading"><span>Investigation intake</span><h2 id="case-title">Create a persisted operational case</h2></div><form onSubmit={createCase} className="case-form case-intake-grid"><div><label htmlFor="case-name">Case title</label><input id="case-name" value={caseTitle} onChange={(e) => setCaseTitle(e.target.value)} minLength={3} required /></div><div><label htmlFor="case-scenario">Scenario</label><select id="case-scenario" value={caseScenario} onChange={(e) => setCaseScenario(e.target.value as ScenarioType)}><option value="conditional_access">Conditional Access</option><option value="resource_assignment">Resource assignment</option><option value="guest_b2b">Guest / B2B lifecycle</option></select></div><div><label htmlFor="case-priority">Priority</label><select id="case-priority" value={casePriority} onChange={(e) => setCasePriority(e.target.value as CasePriority)}><option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option><option value="critical">Critical</option></select></div><div><label htmlFor="case-reference">Redacted external reference</label><input id="case-reference" value={caseReference} onChange={(e) => setCaseReference(e.target.value)} /></div><div className="wide-field"><label htmlFor="case-summary">Redacted case summary</label><textarea id="case-summary" rows={3} value={caseSummary} onChange={(e) => setCaseSummary(e.target.value)} /></div><button type="submit" disabled={unavailable}>{loading ? "Creating case…" : "Create investigation"}</button></form></section>
 
