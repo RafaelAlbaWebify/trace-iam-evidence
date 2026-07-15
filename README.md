@@ -24,6 +24,8 @@ Every workflow uses the same local persistence, immutable analysis history, JSON
 - Ubuntu and Windows lint, strict type checking, tests, and frontend builds.
 - Chromium browser acceptance proof for all three supported scenarios.
 - Reproducible public-safe release proof with SHA-256 manifest.
+- Self-locating Windows runtime management with verified SQLite backup and restore.
+- Portable public-safe review packaging with diagnostics, release evidence and integrity proof.
 
 ## Safety boundary
 
@@ -37,9 +39,46 @@ Every workflow uses the same local persistence, immutable analysis history, JSON
 
 Before using TRACE, replace real names, email addresses, tenant IDs, object IDs, tokens, and confidential resource names with non-identifying placeholders.
 
-## Quick start
+## Windows local runtime
 
-Prerequisites: Python 3.12 and Node.js 22.
+Prerequisites: PowerShell 7, Python 3.12 and Node.js 22.
+
+Start TRACE from any working directory:
+
+```powershell
+pwsh -File C:\path\to\trace-iam-evidence\scripts\trace.ps1 -Action start
+```
+
+The UI is available at `http://127.0.0.1:5173`. Runtime data is stored outside the repository under `%LOCALAPPDATA%\TRACE-IAM-Evidence` by default. Use `-DataDirectory` or `TRACE_DATA_DIR` to select another local path.
+
+Common operations:
+
+```powershell
+pwsh -File C:\path\to\trace-iam-evidence\scripts\trace.ps1 -Action status
+pwsh -File C:\path\to\trace-iam-evidence\scripts\trace.ps1 -Action diagnostics
+pwsh -File C:\path\to\trace-iam-evidence\scripts\trace.ps1 -Action backup
+pwsh -File C:\path\to\trace-iam-evidence\scripts\trace.ps1 -Action stop
+```
+
+Restore a verified backup only while TRACE is stopped:
+
+```powershell
+pwsh -File C:\path\to\trace-iam-evidence\scripts\trace.ps1 -Action restore -RestorePath C:\path\to\backup.db
+```
+
+## Portable review ZIP
+
+Create a timestamped, public-safe review archive directly in Downloads:
+
+```powershell
+pwsh -File C:\path\to\trace-iam-evidence\scripts\export_portable_review.ps1
+```
+
+The exporter does not open the Downloads folder. The archive includes selected public-safe source, documentation, source/version metadata, environment diagnostics, scenario and release-workflow evidence, review instructions and a SHA-256 manifest. It excludes credentials, local evidence, runtime state, databases, logs, backups, virtual environments, dependency directories and build output.
+
+See [Local runtime and portable review](docs/local-runtime-and-portable-review.md) for complete operating instructions and proof boundaries.
+
+## Manual development start
 
 ```bash
 python -m pip install --upgrade pip
@@ -79,8 +118,9 @@ The generated pack contains one JSON report and one Markdown report per scenario
 
 - [Architecture diagram](docs/architecture-diagram.md)
 - [Setup and three-scenario demo](docs/setup-and-demo.md)
+- [Local runtime and portable review](docs/local-runtime-and-portable-review.md)
 - [Known limitations](docs/known-limitations.md)
-- [Roadmap](docs/roadmap.md)
+- [v0.2 roadmap](docs/v0.2-roadmap.md)
 - [Release notes](CHANGELOG.md)
 
 ## Development method
