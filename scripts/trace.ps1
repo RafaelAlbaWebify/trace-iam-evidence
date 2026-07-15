@@ -99,10 +99,10 @@ function Ensure-Dependencies {
         if ($SkipInstall) { throw "TRACE virtual environment is missing: $VenvRoot" }
         if ($null -eq $launcher) { throw 'Python 3.12 is required.' }
         Ensure-Directory (Split-Path $VenvRoot -Parent)
-        Invoke-External -FilePath $launcher.File -Arguments @($launcher.Prefix + @('-m', 'venv', $VenvRoot))
+        $null = Invoke-External -FilePath $launcher.File -Arguments @($launcher.Prefix + @('-m', 'venv', $VenvRoot))
     }
     if (-not $SkipInstall) {
-        Invoke-External -FilePath $VenvPython -Arguments @('-m', 'pip', 'install', '--disable-pip-version-check', '-e', $BackendRoot)
+        $null = Invoke-External -FilePath $VenvPython -Arguments @('-m', 'pip', 'install', '--disable-pip-version-check', '-e', $BackendRoot)
     }
 
     $node = Get-CommandPath 'node'
@@ -118,7 +118,7 @@ function Ensure-Dependencies {
         else {
             @('install', '--ignore-scripts', '--no-audit', '--no-fund')
         }
-        Invoke-External -FilePath $npm -Arguments $installArguments -WorkingDirectory $FrontendRoot
+        $null = Invoke-External -FilePath $npm -Arguments $installArguments -WorkingDirectory $FrontendRoot
     }
     if (-not (Test-Path $ViteEntryPoint)) { throw "Vite entry point is missing: $ViteEntryPoint" }
     return [pscustomobject]@{ Node = $node; Npm = $npm }
