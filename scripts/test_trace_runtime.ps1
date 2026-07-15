@@ -6,7 +6,6 @@ $frontendRoot = Join-Path $repoRoot 'frontend'
 $runtimeScript = Join-Path $PSScriptRoot 'trace.ps1'
 $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("trace-runtime-test-{0}" -f [guid]::NewGuid().ToString('N'))
 $workingRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("trace-runtime-caller-{0}" -f [guid]::NewGuid().ToString('N'))
-$pwsh = (Get-Command pwsh -ErrorAction Stop).Source
 $npm = (Get-Command npm.cmd -ErrorAction SilentlyContinue).Source
 if (-not $npm) { $npm = (Get-Command npm -ErrorAction Stop).Source }
 $statePath = Join-Path $tempRoot 'state\runtime.json'
@@ -25,72 +24,35 @@ function Invoke-TraceAction {
     New-Item -ItemType Directory -Path $workingRoot -Force | Out-Null
 
     $arguments = @(
-        '-NoLogo',
-        '-NoProfile',
-        '-NonInteractive',
-        '-File',
-        $runtimeScript,
-        '-Action',
-        $Action,
-        '-DataDirectory',
-        $tempRoot,
+        '-Action', $Action,
+        '-DataDirectory', $tempRoot,
         '-NoBrowser'
     )
     if ($SkipInstall) {
         $arguments += '-SkipInstall'
     }
 
-    $captureOutput = $Action -ne 'start'
-    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
-    $startInfo.FileName = $pwsh
-    $startInfo.WorkingDirectory = $workingRoot
-    $startInfo.UseShellExecute = $false
-    $startInfo.RedirectStandardOutput = $captureOutput
-    $startInfo.RedirectStandardError = $captureOutput
-    $startInfo.CreateNoWindow = $true
-    foreach ($argument in $arguments) {
-        [void]$startInfo.ArgumentList.Add($argument)
-    }
-
-    $process = [System.Diagnostics.Process]::new()
-    $process.StartInfo = $startInfo
-    $stdout = ''
-    $stderr = ''
+    Push-Location $workingRoot
     try {
-        if (-not $process.Start()) {
-            throw "TRACE runtime action '$Action' could not be started."
+        if ($Action -eq 'status') {
+            $stdout = (& $runtimeScript @arguments | Out-String)
         }
-        if ($captureOutput) {
-            $stdoutTask = $process.StandardOutput.ReadToEndAsync()
-            $stderrTask = $process.StandardError.ReadToEndAsync()
+        else {
+            & $runtimeScript @arguments
+            $stdout = ''
         }
-        $process.WaitForExit()
-        if ($captureOutput) {
-            $stdout = $stdoutTask.GetAwaiter().GetResult()
-            $stderr = $stderrTask.GetAwaiter().GetResult()
-        }
-        $exitCode = $process.ExitCode
     }
     finally {
-        $process.Dispose()
+        Pop-Location
     }
 
-    Write-Host "TRACE $Action exit code: $exitCode"
     if (-not [string]::IsNullOrWhiteSpace($stdout)) {
         Write-Host "--- $Action stdout ---"
         Write-Host $stdout.TrimEnd()
     }
-    if (-not [string]::IsNullOrWhiteSpace($stderr)) {
-        Write-Host "--- $Action stderr ---"
-        Write-Host $stderr.TrimEnd()
-    }
 
-    if ($exitCode -ne 0) {
-        throw "TRACE runtime action '$Action' failed with exit code $exitCode."
-    }
     return [pscustomobject]@{
         Stdout = $stdout
-        Stderr = $stderr
     }
 }
 
