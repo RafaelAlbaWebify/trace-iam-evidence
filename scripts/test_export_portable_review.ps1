@@ -89,8 +89,8 @@ try {
         Write-Host "Portable stage: export attempt $attempt"
         $createdPath = [string](& $exportScript -DestinationDirectory $tempRoot -OutputName $outputName | Select-Object -Last 1)
         if ([string]::IsNullOrWhiteSpace($createdPath)) { throw "Portable review exporter returned no path on attempt $attempt." }
-        if (-not (Test-SamePath $createdPath $zipPath)) { throw "Unexpected ZIP path on attempt $attempt: $createdPath" }
-        if (-not (Test-Path $zipPath -PathType Leaf)) { throw "Portable review ZIP was not created on attempt $attempt: $zipPath" }
+        if (-not (Test-SamePath $createdPath $zipPath)) { throw "Unexpected ZIP path on attempt ${attempt}: $createdPath" }
+        if (-not (Test-Path $zipPath -PathType Leaf)) { throw "Portable review ZIP was not created on attempt ${attempt}: $zipPath" }
         Test-PortableReviewArchive -ArchivePath $zipPath
     }
     Write-Host 'TRACE portable review ZIP safety, integrity and repeatability test passed.'
