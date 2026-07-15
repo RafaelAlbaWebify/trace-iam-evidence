@@ -89,6 +89,9 @@ jobs:
       - name: Test self-locating local runtime manager
         shell: pwsh
         run: ./scripts/test_trace_runtime.ps1
+      - name: Test portable review ZIP safety and integrity
+        shell: pwsh
+        run: ./scripts/test_export_portable_review.ps1
 
   browser-proof:
     runs-on: ubuntu-latest
