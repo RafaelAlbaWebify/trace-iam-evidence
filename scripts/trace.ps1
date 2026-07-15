@@ -43,6 +43,7 @@ $StatePath = Join-Path $StateDirectory 'runtime.json'
 $VenvRoot = Join-Path $RepoRoot '.trace-runtime\venv'
 $VenvPython = Join-Path $VenvRoot 'Scripts\python.exe'
 $DatabaseUtility = Join-Path $PSScriptRoot 'trace_database.py'
+$ViteEntryPoint = Join-Path $FrontendRoot 'node_modules\vite\bin\vite.js'
 
 function Ensure-Directory {
     param([Parameter(Mandatory)][string]$Path)
@@ -98,20 +99,29 @@ function Ensure-Dependencies {
         if ($SkipInstall) { throw "TRACE virtual environment is missing: $VenvRoot" }
         if ($null -eq $launcher) { throw 'Python 3.12 is required.' }
         Ensure-Directory (Split-Path $VenvRoot -Parent)
-        Invoke-External -FilePath $launcher.File -Arguments @($launcher.Prefix + @('-m', 'venv', $VenvRoot))
+        $null = Invoke-External -FilePath $launcher.File -Arguments @($launcher.Prefix + @('-m', 'venv', $VenvRoot))
     }
     if (-not $SkipInstall) {
-        Invoke-External -FilePath $VenvPython -Arguments @('-m', 'pip', 'install', '--disable-pip-version-check', '-e', $BackendRoot)
+        $null = Invoke-External -FilePath $VenvPython -Arguments @('-m', 'pip', 'install', '--disable-pip-version-check', '-e', $BackendRoot)
     }
 
+    $node = Get-CommandPath 'node'
     $npm = Get-CommandPath 'npm.cmd'
     if (-not $npm) { $npm = Get-CommandPath 'npm' }
-    if (-not $npm) { throw 'Node.js and npm are required.' }
-    if (-not (Test-Path (Join-Path $FrontendRoot 'node_modules'))) {
+    if (-not $node -or -not $npm) { throw 'Node.js and npm are required.' }
+    if (-not (Test-Path $ViteEntryPoint)) {
         if ($SkipInstall) { throw 'Frontend dependencies are missing.' }
-        Invoke-External -FilePath $npm -Arguments @('ci') -WorkingDirectory $FrontendRoot
+        $lockFile = Join-Path $FrontendRoot 'package-lock.json'
+        $installArguments = if (Test-Path $lockFile) {
+            @('ci', '--ignore-scripts', '--no-audit', '--no-fund')
+        }
+        else {
+            @('install', '--ignore-scripts', '--no-audit', '--no-fund')
+        }
+        $null = Invoke-External -FilePath $npm -Arguments $installArguments -WorkingDirectory $FrontendRoot
     }
-    return $npm
+    if (-not (Test-Path $ViteEntryPoint)) { throw "Vite entry point is missing: $ViteEntryPoint" }
+    return [pscustomobject]@{ Node = $node; Npm = $npm }
 }
 
 function Read-State {
@@ -156,7 +166,7 @@ function Start-Trace {
     Ensure-Directory $StateDirectory
     Ensure-Directory $LogDirectory
     Ensure-Directory $BackupDirectory
-    $npm = Ensure-Dependencies
+    $dependencies = Ensure-Dependencies
     $env:TRACE_DB_PATH = $DatabasePath
 
     $backendOut = Join-Path $LogDirectory 'backend.out.log'
@@ -167,8 +177,8 @@ function Start-Trace {
     $backend = Start-Process -FilePath $VenvPython -ArgumentList @(
         '-m', 'uvicorn', 'trace_iam.main:app', '--host', '127.0.0.1', '--port', '8000'
     ) -WorkingDirectory $BackendRoot -RedirectStandardOutput $backendOut -RedirectStandardError $backendErr -PassThru
-    $frontend = Start-Process -FilePath $npm -ArgumentList @(
-        'run', 'dev', '--', '--host', '127.0.0.1', '--port', '5173'
+    $frontend = Start-Process -FilePath $dependencies.Node -ArgumentList @(
+        $ViteEntryPoint, '--host', '127.0.0.1', '--port', '5173'
     ) -WorkingDirectory $FrontendRoot -RedirectStandardOutput $frontendOut -RedirectStandardError $frontendErr -PassThru
 
     [pscustomobject]@{

@@ -1,5 +1,36 @@
 # Release notes
 
+## v0.2.0 — In development
+
+### Investigation workbench
+
+- Persisted case creation, metadata, lifecycle and generated case identifiers.
+- Evidence inventory with provenance, reliability, validation and immutable run snapshots.
+- Structured findings with evidence basis, confidence, limitations, safe checks and non-actions.
+- Append-only investigation timeline, report-export audit and operator notes.
+- Immutable analysis-run comparison and JSON comparison export.
+- Operational search, workload dashboard and deterministic latest-activity ordering.
+
+### Local product packaging
+
+- Self-locating Windows runtime manager with start, status, diagnostics and stop actions.
+- Configurable runtime data directory separated from the repository.
+- Backend/frontend process management, health verification, state metadata and retained logs.
+- Verified SQLite online backup, integrity checking and guarded restore.
+- Full Windows lifecycle acceptance executed from outside the repository.
+- Timestamped public-safe review ZIP generated directly in Downloads without opening the folder.
+- Portable review source/version metadata, package diagnostics, scenario/release evidence inventory, review instructions and SHA-256 manifest.
+- Explicit exclusion of credentials, private evidence, runtime state, databases, logs, backups, dependency directories, virtual environments and build output.
+- Repeatability proof for replacing an explicitly named review ZIP at the same destination.
+
+### Verification
+
+- Backend lint, strict typing and tests on Ubuntu and Windows.
+- Frontend type checking, tests and builds on Ubuntu and Windows.
+- Chromium acceptance for supported investigation workflows.
+- Ubuntu and Windows release-proof packs.
+- Windows runtime lifecycle and portable review safety/integrity acceptance.
+
 ## v0.1.0 — Stable operator release
 
 TRACE IAM Evidence provides a local-first, read-only IAM evidence workbench with three complete browser workflows, immutable local history, report exports, and cross-platform release proof.
