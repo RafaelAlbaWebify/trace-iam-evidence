@@ -40,12 +40,13 @@ function Invoke-TraceAction {
         $arguments += '-SkipInstall'
     }
 
+    $captureOutput = $Action -ne 'start'
     $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
     $startInfo.FileName = $pwsh
     $startInfo.WorkingDirectory = $workingRoot
     $startInfo.UseShellExecute = $false
-    $startInfo.RedirectStandardOutput = $true
-    $startInfo.RedirectStandardError = $true
+    $startInfo.RedirectStandardOutput = $captureOutput
+    $startInfo.RedirectStandardError = $captureOutput
     $startInfo.CreateNoWindow = $true
     foreach ($argument in $arguments) {
         [void]$startInfo.ArgumentList.Add($argument)
@@ -53,15 +54,21 @@ function Invoke-TraceAction {
 
     $process = [System.Diagnostics.Process]::new()
     $process.StartInfo = $startInfo
+    $stdout = ''
+    $stderr = ''
     try {
         if (-not $process.Start()) {
             throw "TRACE runtime action '$Action' could not be started."
         }
-        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
-        $stderrTask = $process.StandardError.ReadToEndAsync()
+        if ($captureOutput) {
+            $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+            $stderrTask = $process.StandardError.ReadToEndAsync()
+        }
         $process.WaitForExit()
-        $stdout = $stdoutTask.GetAwaiter().GetResult()
-        $stderr = $stderrTask.GetAwaiter().GetResult()
+        if ($captureOutput) {
+            $stdout = $stdoutTask.GetAwaiter().GetResult()
+            $stderr = $stderrTask.GetAwaiter().GetResult()
+        }
         $exitCode = $process.ExitCode
     }
     finally {
