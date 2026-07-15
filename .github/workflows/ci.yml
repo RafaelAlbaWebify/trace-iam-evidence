@@ -93,7 +93,36 @@ jobs:
           node-version: "22"
       - name: Test full local runtime lifecycle
         shell: pwsh
-        run: ./scripts/test_trace_runtime.ps1
+        run: |
+          $proofDirectory = Join-Path $env:RUNNER_TEMP 'runtime-lifecycle-proof'
+          New-Item -ItemType Directory -Path $proofDirectory -Force | Out-Null
+          $transcriptPath = Join-Path $proofDirectory 'transcript.txt'
+          $failurePath = Join-Path $proofDirectory 'failure.txt'
+          Start-Transcript -Path $transcriptPath -Force | Out-Null
+          try {
+            ./scripts/test_trace_runtime.ps1
+          }
+          catch {
+            @(
+              "message: $($_.Exception.Message)"
+              "type: $($_.Exception.GetType().FullName)"
+              "script_stack_trace:"
+              $_.ScriptStackTrace
+              "full_error:"
+              ($_ | Format-List * -Force | Out-String)
+            ) | Set-Content -Path $failurePath -Encoding UTF8
+            throw
+          }
+          finally {
+            Stop-Transcript | Out-Null
+          }
+      - name: Upload runtime lifecycle diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-lifecycle-diagnostics
+          path: ${{ runner.temp }}/runtime-lifecycle-proof
+          if-no-files-found: warn
 
   portable-review-proof:
     runs-on: windows-latest
@@ -107,7 +136,36 @@ jobs:
           node-version: "22"
       - name: Test portable review ZIP safety, integrity and repeatability
         shell: pwsh
-        run: ./scripts/test_export_portable_review.ps1
+        run: |
+          $proofDirectory = Join-Path $env:RUNNER_TEMP 'portable-review-proof'
+          New-Item -ItemType Directory -Path $proofDirectory -Force | Out-Null
+          $transcriptPath = Join-Path $proofDirectory 'transcript.txt'
+          $failurePath = Join-Path $proofDirectory 'failure.txt'
+          Start-Transcript -Path $transcriptPath -Force | Out-Null
+          try {
+            ./scripts/test_export_portable_review.ps1
+          }
+          catch {
+            @(
+              "message: $($_.Exception.Message)"
+              "type: $($_.Exception.GetType().FullName)"
+              "script_stack_trace:"
+              $_.ScriptStackTrace
+              "full_error:"
+              ($_ | Format-List * -Force | Out-String)
+            ) | Set-Content -Path $failurePath -Encoding UTF8
+            throw
+          }
+          finally {
+            Stop-Transcript | Out-Null
+          }
+      - name: Upload portable review diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: portable-review-diagnostics
+          path: ${{ runner.temp }}/portable-review-proof
+          if-no-files-found: warn
 
   browser-proof:
     runs-on: ubuntu-latest
