@@ -49,6 +49,11 @@ $excludedDirectoryNames = @(
 $excludedExtensions = @('.db', '.sqlite', '.sqlite3', '.pem', '.key', '.pfx', '.p12')
 $excludedNames = @('.env', '.env.local', '.env.production', 'runtime.json')
 
+function Convert-ToArchivePath {
+    param([Parameter(Mandatory)][string]$Path)
+    return $Path.Replace([System.IO.Path]::DirectorySeparatorChar, '/').Replace([System.IO.Path]::AltDirectorySeparatorChar, '/')
+}
+
 function Test-SafeRelativePath {
     param([Parameter(Mandatory)][string]$RelativePath)
 
@@ -134,8 +139,8 @@ try {
     $diagnostics = [ordered]@{
         generated_at_utc = [DateTimeOffset]::UtcNow.ToString('o')
         operating_system = [System.Runtime.InteropServices.RuntimeInformation]::OSDescription
-        operating_system_architecture = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()
-        process_architecture = [System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString()
+        operating_system_architecture = [string][System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
+        process_architecture = [string][System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture
         powershell_version = $PSVersionTable.PSVersion.ToString()
         git_version = Invoke-CommandText -Command 'git' -Arguments @('--version')
         python_version = Invoke-CommandText -Command 'python' -Arguments @('--version')
@@ -151,11 +156,11 @@ try {
 
     $scenarioFiles = @(
         Get-ChildItem (Join-Path $sourceRoot 'examples') -File -Recurse -ErrorAction SilentlyContinue |
-            ForEach-Object { [System.IO.Path]::GetRelativePath($packageRoot, $_.FullName).Replace('\\', '/') }
+            ForEach-Object { Convert-ToArchivePath ([System.IO.Path]::GetRelativePath($packageRoot, $_.FullName)) }
     )
     $workflowFiles = @(
         Get-ChildItem (Join-Path $sourceRoot '.github\workflows') -File -Recurse -ErrorAction SilentlyContinue |
-            ForEach-Object { [System.IO.Path]::GetRelativePath($packageRoot, $_.FullName).Replace('\\', '/') }
+            ForEach-Object { Convert-ToArchivePath ([System.IO.Path]::GetRelativePath($packageRoot, $_.FullName)) }
     )
     $releaseEvidence = [ordered]@{
         evidence_type = 'public-safe source and release-proof inputs'
@@ -190,7 +195,7 @@ The archive is for code and architecture review. It is not a backup of a live TR
         Where-Object { $_.FullName -ne $manifestPath } |
         Sort-Object FullName |
         ForEach-Object {
-            $relative = [System.IO.Path]::GetRelativePath($packageRoot, $_.FullName).Replace('\\', '/')
+            $relative = Convert-ToArchivePath ([System.IO.Path]::GetRelativePath($packageRoot, $_.FullName))
             $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
             "$hash  $relative"
         } | Set-Content $manifestPath -Encoding ascii
