@@ -35,20 +35,20 @@ function Invoke-TraceAction {
     New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
     New-Item -ItemType Directory -Path $workingRoot -Force | Out-Null
 
-    $arguments = @(
-        '-Action', $Action,
-        '-DataDirectory', $tempRoot,
-        '-NoBrowser'
-    )
-    if ($SkipInstall) { $arguments += '-SkipInstall' }
+    $parameters = @{
+        Action = $Action
+        DataDirectory = $tempRoot
+        NoBrowser = $true
+    }
+    if ($SkipInstall) { $parameters.SkipInstall = $true }
 
     Push-Location $workingRoot
     try {
         if ($Action -eq 'status') {
-            $stdout = (& $runtimeScript @arguments | Out-String)
+            $stdout = (& $runtimeScript @parameters | Out-String)
         }
         else {
-            & $runtimeScript @arguments
+            & $runtimeScript @parameters
             $stdout = ''
         }
     }
