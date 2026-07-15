@@ -1,0 +1,455 @@
+/* TRACE case and evidence workflow refurbishment.
+   This module deliberately layers on top of the foundation styles so the
+   existing React structure, IDs, API calls and workflow selectors remain
+   unchanged. */
+
+.case-workspace,
+.case-control,
+.evidence-workspace {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--trace-border);
+  border-radius: var(--trace-radius-lg);
+  background: var(--trace-surface);
+  box-shadow: var(--trace-shadow-sm);
+}
+
+.case-workspace,
+.case-control {
+  padding: var(--trace-space-6);
+}
+
+.case-workspace::before,
+.case-control::before,
+.evidence-workspace::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  content: "";
+  background: var(--trace-accent);
+}
+
+.case-workspace {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--trace-accent) 4%, transparent), transparent 42%),
+    var(--trace-surface);
+}
+
+.case-control::before {
+  background: var(--trace-positive);
+}
+
+.evidence-workspace::before {
+  background: var(--trace-info);
+}
+
+.case-workspace .section-heading,
+.case-control .section-heading,
+.evidence-workspace .section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--trace-space-4);
+  margin-bottom: var(--trace-space-5);
+  padding-bottom: var(--trace-space-4);
+  border-bottom: 1px solid var(--trace-border-subtle);
+}
+
+.case-workspace .section-heading h2,
+.case-control .section-heading h2,
+.evidence-workspace .section-heading h2 {
+  margin: var(--trace-space-1) 0 0;
+  font-size: clamp(1.25rem, 2vw, 1.55rem);
+  letter-spacing: -.025em;
+}
+
+.case-form,
+.metadata-form,
+.evidence-form {
+  margin-top: 0;
+}
+
+.case-intake-grid,
+.metadata-form {
+  display: grid;
+  grid-template-columns: minmax(14rem, 1.2fr) minmax(11rem, .8fr) minmax(10rem, .65fr);
+  gap: var(--trace-space-4);
+  align-items: end;
+}
+
+.case-intake-grid > div,
+.metadata-form > div,
+.evidence-form > div {
+  display: grid;
+  gap: var(--trace-space-2);
+  min-width: 0;
+}
+
+.case-intake-grid label,
+.metadata-form label,
+.evidence-form label {
+  color: var(--trace-text-muted);
+  font-size: .76rem;
+  font-weight: 750;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+}
+
+.case-intake-grid input,
+.case-intake-grid select,
+.case-intake-grid textarea,
+.metadata-form input,
+.metadata-form select,
+.metadata-form textarea,
+.evidence-form input,
+.evidence-form select,
+.evidence-form textarea {
+  min-height: 42px;
+  border-color: var(--trace-border);
+  border-radius: var(--trace-radius-sm);
+  background: var(--trace-surface);
+}
+
+.case-intake-grid textarea,
+.metadata-form textarea,
+.evidence-form textarea {
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.case-intake-grid > button,
+.evidence-form > button {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.case-workspace .wide-field,
+.case-control .wide-field,
+.evidence-form .wide-field {
+  grid-column: 1 / -1;
+}
+
+.active-case {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--trace-space-3) var(--trace-space-5);
+  margin: 0 0 var(--trace-space-5);
+  padding: var(--trace-space-5);
+  border: 1px solid color-mix(in srgb, var(--trace-positive) 34%, var(--trace-border));
+  border-radius: var(--trace-radius-md);
+  background: color-mix(in srgb, var(--trace-positive) 5%, var(--trace-surface));
+  box-shadow: none;
+}
+
+.active-case > span {
+  color: var(--trace-positive-strong);
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.active-case > strong {
+  grid-column: 1;
+  font-size: 1.2rem;
+  letter-spacing: -.02em;
+}
+
+.active-case > code {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  max-width: 24rem;
+  overflow-wrap: anywhere;
+  padding: var(--trace-space-2) var(--trace-space-3);
+  border: 1px solid color-mix(in srgb, var(--trace-positive) 28%, transparent);
+  border-radius: var(--trace-radius-sm);
+  background: var(--trace-sidebar-surface);
+  color: #e9fff0;
+  font-size: .78rem;
+}
+
+.active-case > small,
+.active-case > p,
+.active-case .case-badges {
+  grid-column: 1 / -1;
+}
+
+.active-case > small {
+  color: var(--trace-text-muted);
+}
+
+.active-case > p {
+  margin: 0;
+  color: var(--trace-text-secondary);
+  line-height: 1.55;
+}
+
+.case-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--trace-space-2);
+}
+
+.case-badges b {
+  display: inline-flex;
+  align-items: center;
+  min-height: 25px;
+  padding: 0 var(--trace-space-3);
+  border: 1px solid color-mix(in srgb, var(--trace-positive) 30%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--trace-positive) 10%, var(--trace-surface));
+  color: var(--trace-positive-strong);
+  font-size: .72rem;
+  font-weight: 750;
+}
+
+.case-actions {
+  display: flex !important;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--trace-space-2);
+}
+
+.evidence-workspace {
+  padding: var(--trace-space-6);
+}
+
+.evidence-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--trace-space-3);
+  margin: 0 0 var(--trace-space-5);
+}
+
+.evidence-summary article {
+  display: grid;
+  gap: var(--trace-space-2);
+  min-height: 92px;
+  padding: var(--trace-space-4);
+  border: 1px solid var(--trace-border-subtle);
+  border-radius: var(--trace-radius-md);
+  background: var(--trace-surface-muted);
+}
+
+.evidence-summary span {
+  color: var(--trace-text-muted);
+  font-size: .7rem;
+  font-weight: 800;
+  letter-spacing: .075em;
+  text-transform: uppercase;
+}
+
+.evidence-summary strong {
+  align-self: end;
+  color: var(--trace-text);
+  font-size: 1.45rem;
+  letter-spacing: -.035em;
+}
+
+.evidence-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--trace-space-4);
+  margin-bottom: var(--trace-space-6);
+  padding: var(--trace-space-5);
+  border: 1px solid var(--trace-border-subtle);
+  border-radius: var(--trace-radius-md);
+  background: var(--trace-surface-muted);
+}
+
+.evidence-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--trace-border);
+  border-radius: var(--trace-radius-md);
+  background: var(--trace-surface);
+  list-style: none;
+}
+
+.evidence-list > li {
+  display: grid;
+  grid-template-columns: minmax(13rem, .8fr) minmax(0, 1.8fr) auto;
+  gap: var(--trace-space-4);
+  align-items: start;
+  padding: var(--trace-space-4);
+  border: 0;
+  border-bottom: 1px solid var(--trace-border-subtle);
+  border-radius: 0;
+}
+
+.evidence-list > li:last-child {
+  border-bottom: 0;
+}
+
+.evidence-list > li:hover {
+  background: color-mix(in srgb, var(--trace-accent) 2.5%, var(--trace-surface));
+}
+
+.evidence-card-heading {
+  display: grid;
+  gap: var(--trace-space-2);
+  align-content: start;
+}
+
+.evidence-card-heading strong {
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .82rem;
+}
+
+.evidence-card-heading span {
+  width: fit-content;
+  padding: .24rem .58rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: .7rem;
+  font-weight: 800;
+}
+
+.evidence-card-heading .validated {
+  border-color: color-mix(in srgb, var(--trace-positive) 25%, transparent);
+  background: color-mix(in srgb, var(--trace-positive) 10%, var(--trace-surface));
+  color: var(--trace-positive-strong);
+}
+
+.evidence-card-heading .pending {
+  border-color: color-mix(in srgb, var(--trace-warning) 30%, transparent);
+  background: color-mix(in srgb, var(--trace-warning) 11%, var(--trace-surface));
+  color: var(--trace-warning-strong);
+}
+
+.evidence-list dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--trace-space-3) var(--trace-space-5);
+  margin: 0;
+}
+
+.evidence-list dl div {
+  min-width: 0;
+}
+
+.evidence-list dt {
+  margin-bottom: var(--trace-space-1);
+  color: var(--trace-text-muted);
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .065em;
+  text-transform: uppercase;
+}
+
+.evidence-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--trace-text-secondary);
+  font-size: .84rem;
+  font-weight: 650;
+}
+
+.evidence-list .case-actions {
+  justify-content: flex-end;
+}
+
+.evidence-list .case-actions button {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.evidence-excerpt,
+.evidence-list > li > small {
+  grid-column: 1 / -1;
+}
+
+.evidence-excerpt {
+  margin: 0;
+  padding: var(--trace-space-3) var(--trace-space-4);
+  border-left: 3px solid var(--trace-info);
+  background: var(--trace-surface-muted);
+  color: var(--trace-text-secondary);
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.evidence-list > li > small {
+  color: var(--trace-text-muted);
+  line-height: 1.5;
+}
+
+@media (max-width: 1180px) {
+  .evidence-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .evidence-list > li {
+    grid-template-columns: minmax(12rem, .7fr) minmax(0, 1.4fr);
+  }
+
+  .evidence-list .case-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 860px) {
+  .case-intake-grid,
+  .metadata-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .active-case {
+    grid-template-columns: 1fr;
+  }
+
+  .active-case > code {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: start;
+  }
+
+  .evidence-list > li {
+    grid-template-columns: 1fr;
+  }
+
+  .evidence-excerpt,
+  .evidence-list > li > small,
+  .evidence-list .case-actions {
+    grid-column: 1;
+  }
+}
+
+@media (max-width: 620px) {
+  .case-workspace,
+  .case-control,
+  .evidence-workspace {
+    padding: var(--trace-space-4);
+  }
+
+  .case-intake-grid,
+  .metadata-form,
+  .evidence-form,
+  .evidence-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .case-workspace .wide-field,
+  .case-control .wide-field,
+  .evidence-form .wide-field,
+  .case-intake-grid > button,
+  .evidence-form > button {
+    grid-column: 1;
+  }
+
+  .evidence-form {
+    padding: var(--trace-space-4);
+  }
+
+  .case-actions button,
+  .evidence-list .case-actions button {
+    width: 100%;
+  }
+}
