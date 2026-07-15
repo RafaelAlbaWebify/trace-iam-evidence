@@ -1,6 +1,6 @@
 # Release notes
 
-## v0.2.0 — In development
+## v0.2.0 — 2026-07-15
 
 ### Investigation workbench
 
