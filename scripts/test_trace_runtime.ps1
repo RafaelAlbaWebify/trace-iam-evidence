@@ -21,8 +21,6 @@ function Invoke-TraceAction {
         [switch]$SkipInstall
     )
 
-    $stdoutPath = Join-Path $tempRoot "$Action.out.log"
-    $stderrPath = Join-Path $tempRoot "$Action.err.log"
     New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
     New-Item -ItemType Directory -Path $workingRoot -Force | Out-Null
 
@@ -42,11 +40,35 @@ function Invoke-TraceAction {
         $arguments += '-SkipInstall'
     }
 
-    $process = Start-Process -FilePath $pwsh -ArgumentList $arguments -WorkingDirectory $workingRoot -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath -PassThru -Wait
-    $stdout = if (Test-Path $stdoutPath) { Get-Content $stdoutPath -Raw } else { '' }
-    $stderr = if (Test-Path $stderrPath) { Get-Content $stderrPath -Raw } else { '' }
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = $pwsh
+    $startInfo.WorkingDirectory = $workingRoot
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $startInfo.CreateNoWindow = $true
+    foreach ($argument in $arguments) {
+        [void]$startInfo.ArgumentList.Add($argument)
+    }
 
-    Write-Host "TRACE $Action exit code: $($process.ExitCode)"
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $startInfo
+    try {
+        if (-not $process.Start()) {
+            throw "TRACE runtime action '$Action' could not be started."
+        }
+        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+        $stderrTask = $process.StandardError.ReadToEndAsync()
+        $process.WaitForExit()
+        $stdout = $stdoutTask.GetAwaiter().GetResult()
+        $stderr = $stderrTask.GetAwaiter().GetResult()
+        $exitCode = $process.ExitCode
+    }
+    finally {
+        $process.Dispose()
+    }
+
+    Write-Host "TRACE $Action exit code: $exitCode"
     if (-not [string]::IsNullOrWhiteSpace($stdout)) {
         Write-Host "--- $Action stdout ---"
         Write-Host $stdout.TrimEnd()
@@ -56,8 +78,8 @@ function Invoke-TraceAction {
         Write-Host $stderr.TrimEnd()
     }
 
-    if ($process.ExitCode -ne 0) {
-        throw "TRACE runtime action '$Action' failed with exit code $($process.ExitCode)."
+    if ($exitCode -ne 0) {
+        throw "TRACE runtime action '$Action' failed with exit code $exitCode."
     }
     return [pscustomobject]@{
         Stdout = $stdout
