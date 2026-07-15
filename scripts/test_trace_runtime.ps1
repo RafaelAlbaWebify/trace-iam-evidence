@@ -1,10 +1,14 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$frontendRoot = Join-Path $repoRoot 'frontend'
 $runtimeScript = Join-Path $PSScriptRoot 'trace.ps1'
 $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("trace-runtime-test-{0}" -f [guid]::NewGuid().ToString('N'))
 $workingRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("trace-runtime-caller-{0}" -f [guid]::NewGuid().ToString('N'))
 $pwsh = (Get-Command pwsh -ErrorAction Stop).Source
+$npm = (Get-Command npm.cmd -ErrorAction SilentlyContinue).Source
+if (-not $npm) { $npm = (Get-Command npm -ErrorAction Stop).Source }
 $statePath = Join-Path $tempRoot 'state\runtime.json'
 $logDirectory = Join-Path $tempRoot 'logs'
 
@@ -94,6 +98,17 @@ function Assert-ProcessStopped {
 }
 
 try {
+    Push-Location $frontendRoot
+    try {
+        & $npm install --ignore-scripts --no-audit --no-fund
+        if ($LASTEXITCODE -ne 0) {
+            throw "Frontend dependency preparation failed with exit code $LASTEXITCODE."
+        }
+    }
+    finally {
+        Pop-Location
+    }
+
     Invoke-TraceAction -Action start | Out-Null
     Wait-ForEndpoint -Uri 'http://127.0.0.1:8000/api/health'
     Wait-ForEndpoint -Uri 'http://127.0.0.1:5173'
@@ -105,7 +120,7 @@ try {
     if ($state.runtime_root -ne $tempRoot) {
         throw "TRACE runtime root mismatch. Expected '$tempRoot', found '$($state.runtime_root)'."
     }
-    if ($state.repo_root -ne (Resolve-Path (Join-Path $PSScriptRoot '..')).Path) {
+    if ($state.repo_root -ne $repoRoot) {
         throw 'TRACE runtime manager did not resolve the repository from its own location.'
     }
     if ($state.database_path -ne (Join-Path $tempRoot 'trace_iam.db')) {
