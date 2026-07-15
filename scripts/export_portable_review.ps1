@@ -84,6 +84,24 @@ function Copy-PublicSafePath {
     }
 }
 
+function Invoke-CommandText {
+    param(
+        [Parameter(Mandatory)][string]$Command,
+        [Parameter()][string[]]$Arguments = @()
+    )
+
+    $resolved = Get-Command $Command -ErrorAction SilentlyContinue
+    if ($null -eq $resolved) { return 'unavailable' }
+    try {
+        $result = & $resolved.Source @Arguments 2>$null
+        if ($LASTEXITCODE -ne 0) { return 'unavailable' }
+        return (($result | Out-String).Trim())
+    }
+    catch {
+        return 'unavailable'
+    }
+}
+
 function Invoke-GitText {
     param([Parameter(Mandatory)][string[]]$Arguments)
     $result = & git -C $repoRoot @Arguments 2>$null
@@ -113,6 +131,41 @@ try {
     }
     $metadata | ConvertTo-Json | Set-Content (Join-Path $proofRoot 'SOURCE_METADATA.json') -Encoding UTF8
 
+    $diagnostics = [ordered]@{
+        generated_at_utc = [DateTimeOffset]::UtcNow.ToString('o')
+        operating_system = [System.Runtime.InteropServices.RuntimeInformation]::OSDescription
+        operating_system_architecture = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()
+        process_architecture = [System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString()
+        powershell_version = $PSVersionTable.PSVersion.ToString()
+        git_version = Invoke-CommandText -Command 'git' -Arguments @('--version')
+        python_version = Invoke-CommandText -Command 'python' -Arguments @('--version')
+        node_version = Invoke-CommandText -Command 'node' -Arguments @('--version')
+        npm_version = Invoke-CommandText -Command 'npm' -Arguments @('--version')
+        source_file_count = @(Get-ChildItem $sourceRoot -File -Recurse).Count
+        package_destination = $zipPath
+        runtime_state_collected = $false
+        credentials_collected = $false
+        local_evidence_collected = $false
+    }
+    $diagnostics | ConvertTo-Json | Set-Content (Join-Path $proofRoot 'PACKAGE_DIAGNOSTICS.json') -Encoding UTF8
+
+    $scenarioFiles = @(
+        Get-ChildItem (Join-Path $sourceRoot 'examples') -File -Recurse -ErrorAction SilentlyContinue |
+            ForEach-Object { [System.IO.Path]::GetRelativePath($packageRoot, $_.FullName).Replace('\\', '/') }
+    )
+    $workflowFiles = @(
+        Get-ChildItem (Join-Path $sourceRoot '.github\workflows') -File -Recurse -ErrorAction SilentlyContinue |
+            ForEach-Object { [System.IO.Path]::GetRelativePath($packageRoot, $_.FullName).Replace('\\', '/') }
+    )
+    $releaseEvidence = [ordered]@{
+        evidence_type = 'public-safe source and release-proof inputs'
+        scenario_files = $scenarioFiles
+        workflow_files = $workflowFiles
+        generated_reports_included = $false
+        explanation = 'The package contains public-safe scenario inputs, release builders, tests and workflow definitions. Live workspace data and generated local reports are deliberately excluded.'
+    }
+    $releaseEvidence | ConvertTo-Json -Depth 4 | Set-Content (Join-Path $proofRoot 'RELEASE_EVIDENCE.json') -Encoding UTF8
+
     @'
 # TRACE Portable Review
 
@@ -122,7 +175,7 @@ This archive is a public-safe review package generated from the TRACE IAM Eviden
 
 1. Read `source/README.md` for scope and safety boundaries.
 2. Read `source/docs/architecture-diagram.md`, `source/docs/setup-and-demo.md`, and `source/docs/known-limitations.md`.
-3. Inspect `proof/SOURCE_METADATA.json` and `proof/SHA256SUMS.txt`.
+3. Inspect `proof/SOURCE_METADATA.json`, `proof/PACKAGE_DIAGNOSTICS.json`, `proof/RELEASE_EVIDENCE.json`, and `proof/SHA256SUMS.txt`.
 4. Review the implementation and tests under `source/backend`, `source/frontend`, and `source/scripts`.
 
 ## Deliberate exclusions
@@ -137,7 +190,7 @@ The archive is for code and architecture review. It is not a backup of a live TR
         Where-Object { $_.FullName -ne $manifestPath } |
         Sort-Object FullName |
         ForEach-Object {
-            $relative = [System.IO.Path]::GetRelativePath($packageRoot, $_.FullName).Replace('\', '/')
+            $relative = [System.IO.Path]::GetRelativePath($packageRoot, $_.FullName).Replace('\\', '/')
             $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
             "$hash  $relative"
         } | Set-Content $manifestPath -Encoding ascii
