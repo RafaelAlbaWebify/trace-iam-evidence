@@ -3,47 +3,92 @@
 > [!NOTE]
 > **This is the current maintained TRACE repository and the canonical source for the project.**
 >
-> It supersedes the earlier [`trace-ops`](https://github.com/RafaelAlbaWebify/trace-ops) prototype, which is retained only as development history.
+> It supersedes the archived [`trace-ops`](https://github.com/RafaelAlbaWebify/trace-ops) prototype, which is retained only as development history.
 
-TRACE IAM Evidence is a local-first, read-only IAM and access-support investigation workbench. It structures redacted evidence, evaluates deterministic versioned rules, records uncertainty and limitations, generates reviewable Markdown and JSON reports, and preserves immutable local investigation history.
+TRACE is a **local-first, read-only IAM and access-support investigation workbench**. It turns redacted ticket evidence into structured findings, makes uncertainty visible, records what evidence supports or contradicts a conclusion, and preserves an immutable investigation history for review or escalation.
 
-## Stable release scope
+![TRACE operational interface overview](docs/screenshots/trace-ui-overview.svg)
 
-TRACE supports three public-safe operator workflows in the browser:
+## Why TRACE exists
 
-1. **Conditional Access** — documented redacted Entra sign-in CSV evidence.
-2. **Resource assignment** — evidence-supported review of a missing subject-to-resource assignment.
-3. **Guest and B2B lifecycle** — distinct invitation, redemption, tenant-restriction, and resource-assignment evidence.
+Access investigations rarely begin with one complete source. The useful facts may be split across sign-in exports, user reports, invitation state, resource assignments, previous notes and assumptions from different people.
 
-Every workflow uses the same local persistence, immutable analysis history, JSON and Markdown exports, archive/reopen behavior, and browser acceptance proof.
+TRACE provides a repeatable support workflow:
 
-## What TRACE proves
+```text
+create case
+  -> collect redacted evidence
+  -> record provenance and reliability
+  -> run one deterministic scenario analysis
+  -> review supporting, contradicting and missing evidence
+  -> document safe checks, non-actions and limitations
+  -> preserve the immutable run, timeline and report
+```
 
+It does not claim a root cause when the available evidence is insufficient.
+
+## Supported investigation scenarios
+
+| Scenario | What TRACE evaluates |
+|---|---|
+| **Conditional Access** | Documented, redacted Entra sign-in CSV evidence and policy-related signals |
+| **Resource assignment** | Whether authentication succeeded but the subject-to-resource assignment is missing or unconfirmed |
+| **Guest / B2B lifecycle** | Invitation, redemption, tenant restriction and resource assignment as separate evidence states |
+
+All three scenarios use the same persisted cases, evidence contracts, immutable runs, timeline, reports, archive/reopen behavior and browser acceptance proof.
+
+## Operational interface
+
+The browser application includes:
+
+- workload dashboard and searchable case register;
+- case intake, metadata, lifecycle and archive/reopen controls;
+- evidence inventory with provenance, reliability and validation state;
+- scenario-specific analysis forms;
+- structured findings with supporting, contradicting and missing evidence;
+- safe next checks, explicit non-actions and limitations;
+- append-only investigation timeline and redacted operator notes;
+- immutable run comparison and JSON comparison export;
+- persisted history and Markdown/JSON report access;
+- responsive desktop and narrow layouts.
+
+The CI browser-proof workflow generates and retains the actual full-resolution desktop and narrow screenshots plus console, page-error and responsive diagnostics.
+
+## What the project demonstrates
+
+- Evidence-led Application Support and IAM troubleshooting.
 - Shared source-independent investigation and evidence contracts.
-- Scenario-specific adapters and deterministic rules using one rule interface.
-- Supporting, contradicting, and missing evidence in findings.
-- Safe recommended checks and explicit non-actions.
-- Alembic-managed SQLite persistence and immutable analysis runs.
-- JSON and Markdown report generation and export.
-- Accessible scenario navigation, validation guidance, loading states, and readable API errors.
-- Ubuntu and Windows lint, strict type checking, tests, and frontend builds.
-- Chromium browser acceptance proof for all three supported scenarios.
-- Reproducible public-safe release proof with SHA-256 manifest.
-- Self-locating Windows runtime management with verified SQLite backup and restore.
-- Portable public-safe review packaging with diagnostics, release evidence and integrity proof.
-- A responsive operational interface covering dashboard, cases, evidence, findings, timeline, run comparison, history, and reports.
+- Scenario adapters and deterministic versioned rules.
+- Clear separation between fact, inference, contradiction and missing evidence.
+- Alembic-managed SQLite persistence and immutable analysis history.
+- Support-ready Markdown and JSON exports.
+- Self-locating Windows runtime management with verified backup and guarded restore.
+- Public-safe portable review packaging with integrity manifest.
+- Backend and frontend verification on Ubuntu and Windows.
+- Chromium acceptance for every supported scenario and the refurbished GUI.
 
 ## Safety boundary
 
 - Local-first and read-only.
 - Redacted or public-safe sample evidence only.
-- No credentials, tenant-wide scanning, or Microsoft Graph connection.
-- No automatic access, identity, invitation, policy, licensing, or remediation changes.
+- No credentials, tenant-wide scanning or Microsoft Graph connection.
+- No automatic access, identity, invitation, policy, licensing or remediation changes.
 - No recommendation to disable Conditional Access globally or weaken cross-tenant controls.
 - No root-cause claim without sufficient supporting evidence.
-- Every finding exposes its rule identity, evidence basis, limitations, and uncertainty.
+- Every finding exposes rule identity, evidence basis, limitations and uncertainty.
 
-Before using TRACE, replace real names, email addresses, tenant IDs, object IDs, tokens, and confidential resource names with non-identifying placeholders.
+Before using TRACE, replace real names, email addresses, tenant IDs, object IDs, tokens and confidential resource names with non-identifying placeholders.
+
+## Quick demonstration
+
+1. Start TRACE locally.
+2. Open one of the public-safe default cases or create a new case.
+3. Review the evidence inventory and scenario guidance.
+4. Run the matching analysis.
+5. Inspect the evidence basis, missing evidence, safe checks and non-actions.
+6. Add a redacted operator note, compare runs if available and export the report.
+
+See [Setup and three-scenario demo](docs/setup-and-demo.md) for the complete walkthrough.
 
 ## Windows local runtime
 
@@ -55,7 +100,7 @@ Start TRACE from any working directory:
 pwsh -File C:\path\to\trace-iam-evidence\scripts\trace.ps1 -Action start
 ```
 
-The UI is available at `http://127.0.0.1:5173`. Runtime data is stored outside the repository under `%LOCALAPPDATA%\TRACE-IAM-Evidence` by default. Use `-DataDirectory` or `TRACE_DATA_DIR` to select another local path.
+The UI is available at `http://127.0.0.1:5173`. Runtime data is stored outside the repository under `%LOCALAPPDATA%\TRACE-IAM-Evidence` by default.
 
 Common operations:
 
@@ -80,9 +125,7 @@ Create a timestamped, public-safe review archive directly in Downloads:
 pwsh -File C:\path\to\trace-iam-evidence\scripts\export_portable_review.ps1
 ```
 
-The exporter does not open the Downloads folder. The archive includes selected public-safe source, documentation, source/version metadata, environment diagnostics, scenario and release-workflow evidence, review instructions and a SHA-256 manifest. It excludes credentials, local evidence, runtime state, databases, logs, backups, virtual environments, dependency directories and build output.
-
-See [Local runtime and portable review](docs/local-runtime-and-portable-review.md) for complete operating instructions and proof boundaries.
+The exporter does not open Downloads. It includes selected public-safe source, documentation, source/version metadata, diagnostics, scenario and release evidence, review instructions and a SHA-256 manifest. It excludes credentials, local evidence, runtime state, databases, logs, backups, virtual environments, dependency directories and build output.
 
 ## Manual development start
 
@@ -106,19 +149,16 @@ npm --prefix frontend run dev -- --host 127.0.0.1 --port 4173
 
 Open `http://127.0.0.1:4173`.
 
-The operator interface includes public-safe defaults for demonstration. Use the scenario guidance before replacing them with your own redacted evidence.
+## Verification and release proof
 
-## Rebuild the release proof
+The project verifies:
 
-From the `backend` directory:
-
-```bash
-python scripts/build_release_pack.py \
-  --scenarios ../examples/scenarios \
-  --output ../release-proof
-```
-
-The generated pack contains one JSON report and one Markdown report per scenario plus a cryptographic manifest. GitHub Actions builds the same pack on Ubuntu and Windows and retains downloadable proof artifacts.
+- backend lint, strict type checking and tests on Ubuntu and Windows;
+- frontend type checking, tests and production builds on Ubuntu and Windows;
+- Windows runtime lifecycle and portable-review safety/integrity;
+- Chromium acceptance for all supported investigations;
+- desktop and narrow GUI proof with browser diagnostics;
+- reproducible public-safe release packs and SHA-256 manifests.
 
 ## Documentation
 
@@ -126,9 +166,9 @@ The generated pack contains one JSON report and one Markdown report per scenario
 - [Setup and three-scenario demo](docs/setup-and-demo.md)
 - [Local runtime and portable review](docs/local-runtime-and-portable-review.md)
 - [Known limitations](docs/known-limitations.md)
-- [v0.2 roadmap](docs/v0.2-roadmap.md)
 - [Release notes](CHANGELOG.md)
+- [v0.3.0 release draft](docs/releases/v0.3.0.md)
 
 ## Development method
 
-No feature is considered complete because code exists. Every milestone is developed in a focused branch, validated through GitHub Actions, inspected at job and artifact level, and merged only after its automatic proof is green.
+No feature is considered complete because code exists. Each milestone is developed in a focused branch, validated through GitHub Actions, inspected at job and artifact level, and merged only after its automatic proof is green.
