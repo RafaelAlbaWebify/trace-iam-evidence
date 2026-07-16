@@ -5,6 +5,7 @@ import { App } from "./App";
 import "./EvidenceWorkspace.css";
 import "./CaseEvidenceRefurbishment.css";
 import "./AnalysisFindingsPresentation.css";
+import "./TimelineComparisonHistoryPresentation.css";
 
 const root = document.getElementById("root");
 
