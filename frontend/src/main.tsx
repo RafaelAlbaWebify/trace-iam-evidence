@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import "./EvidenceWorkspace.css";
 import "./CaseEvidenceRefurbishment.css";
+import "./AnalysisFindingsPresentation.css";
 
 const root = document.getElementById("root");
 

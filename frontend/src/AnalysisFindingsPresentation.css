@@ -1,0 +1,460 @@
+/* TRACE GUI refurbishment: scenario analysis and structured findings.
+   Presentation only. Domain semantics and workflow behaviour remain unchanged. */
+
+.workflow-card {
+  position: relative;
+  display: grid;
+  gap: var(--space-5);
+  padding: var(--space-6);
+  overflow: hidden;
+}
+
+.workflow-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--trace-accent);
+}
+
+.workflow-card .section-heading {
+  display: grid;
+  gap: var(--space-1);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--trace-border-subtle);
+}
+
+.workflow-card .section-heading span {
+  width: fit-content;
+  padding: .25rem .55rem;
+  border: 1px solid var(--trace-accent-border);
+  border-radius: var(--radius-pill);
+  background: var(--trace-accent-soft);
+  letter-spacing: .08em;
+}
+
+.workflow-card .section-heading h2 {
+  margin-bottom: 0;
+  font-size: clamp(1.2rem, 2vw, 1.55rem);
+}
+
+.workflow-card > p {
+  max-width: 74ch;
+  margin: calc(var(--space-2) * -1) 0 0;
+  color: var(--trace-text-muted);
+  line-height: 1.65;
+}
+
+.workflow-card form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+  padding: var(--space-5);
+  border: 1px solid var(--trace-border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--trace-surface-muted);
+}
+
+.workflow-card form > label:not(.check-row),
+.workflow-card form > textarea,
+.workflow-card form > .check-grid,
+.workflow-card form > button {
+  grid-column: 1 / -1;
+}
+
+.workflow-card form > label:not(.check-row) {
+  display: grid;
+  gap: var(--space-2);
+  color: var(--trace-text-strong);
+}
+
+.workflow-card form > label:not(.check-row):has(+ input),
+.workflow-card form > label:not(.check-row):has(+ select) {
+  grid-column: auto;
+}
+
+.workflow-card textarea {
+  min-height: 9rem;
+  resize: vertical;
+}
+
+.workflow-card .check-row,
+.workflow-card .check-grid label {
+  min-height: 2.75rem;
+  padding: .65rem .8rem;
+  border: 1px solid var(--trace-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--trace-surface);
+}
+
+.workflow-card .check-grid {
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--trace-surface);
+}
+
+.workflow-card button[type="submit"] {
+  justify-self: start;
+  min-width: 13rem;
+}
+
+.workflow-card button[type="submit"]:disabled {
+  background: var(--trace-neutral-400);
+  color: var(--trace-neutral-100);
+}
+
+.findings-workspace {
+  gap: var(--space-5);
+  padding: var(--space-6);
+  border-color: var(--trace-accent-border);
+  border-radius: var(--radius-xl);
+  background: var(--trace-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.findings-workspace > .section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--trace-border-subtle);
+}
+
+.findings-workspace > .section-heading h2 {
+  margin-bottom: 0;
+}
+
+.findings-workspace .result-summary {
+  grid-template-columns: minmax(8rem, .7fr) minmax(8rem, .7fr) minmax(18rem, 3fr);
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.findings-workspace .result-summary article {
+  min-height: 5.5rem;
+  padding: var(--space-4);
+  border: 1px solid var(--trace-border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--trace-surface-muted);
+}
+
+.findings-workspace .result-summary article:last-child {
+  background: var(--trace-accent-soft);
+  border-color: var(--trace-accent-border);
+}
+
+.findings-workspace .result-summary strong {
+  color: var(--trace-text-strong);
+  line-height: 1.35;
+}
+
+.finding-exports {
+  gap: var(--space-2);
+}
+
+.finding-exports a {
+  min-height: 2.5rem;
+  padding: .55rem .8rem;
+  border-color: var(--trace-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--trace-surface);
+  color: var(--trace-text);
+}
+
+.finding-exports a::before {
+  content: "Export";
+  margin-right: .2rem;
+  color: var(--trace-text-muted);
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.finding-exports a:hover,
+.finding-exports a:focus-visible {
+  border-color: var(--trace-accent);
+  background: var(--trace-accent-soft);
+}
+
+.finding-filters {
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--trace-border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--trace-surface-muted);
+}
+
+.finding-filters label {
+  min-width: 13rem;
+}
+
+.finding-filters span {
+  margin-left: auto;
+  padding: .55rem .75rem;
+  border-radius: var(--radius-pill);
+  background: var(--trace-neutral-200);
+  color: var(--trace-text-muted);
+  font-size: .82rem;
+  font-weight: 800;
+}
+
+.finding-grid {
+  gap: var(--space-4);
+}
+
+.finding-card {
+  gap: var(--space-4);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--trace-border-subtle);
+  border-left-width: 1px;
+  border-radius: var(--radius-xl);
+  background: var(--trace-surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.finding-card > header {
+  padding: var(--space-5);
+  border-bottom: 1px solid var(--trace-border-subtle);
+  background: var(--trace-surface-muted);
+}
+
+.finding-card.severity-high > header { box-shadow: inset 4px 0 var(--trace-danger); }
+.finding-card.severity-medium > header { box-shadow: inset 4px 0 var(--trace-warning); }
+.finding-card.severity-low > header { box-shadow: inset 4px 0 var(--trace-accent); }
+.finding-card.severity-info > header { box-shadow: inset 4px 0 var(--trace-neutral-500); }
+
+.finding-card > header h3 {
+  margin-top: var(--space-1);
+  color: var(--trace-text-strong);
+  font-size: 1.12rem;
+  line-height: 1.35;
+}
+
+.finding-card header span {
+  color: var(--trace-text-muted);
+  font-family: var(--font-mono);
+  font-size: .76rem;
+}
+
+.finding-badges b {
+  padding: .35rem .6rem;
+  border: 1px solid var(--trace-border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--trace-surface);
+  color: var(--trace-text-muted);
+  font-size: .74rem;
+  letter-spacing: .02em;
+}
+
+.finding-card.severity-high .finding-badges b:first-child {
+  border-color: var(--trace-danger-border);
+  background: var(--trace-danger-soft);
+  color: var(--trace-danger-text);
+}
+
+.finding-card.severity-medium .finding-badges b:first-child {
+  border-color: var(--trace-warning-border);
+  background: var(--trace-warning-soft);
+  color: var(--trace-warning-text);
+}
+
+.finding-card.severity-low .finding-badges b:first-child {
+  border-color: var(--trace-accent-border);
+  background: var(--trace-accent-soft);
+  color: var(--trace-accent-strong);
+}
+
+.fact-columns {
+  gap: 0;
+  padding: 0 var(--space-5);
+  border: 1px solid var(--trace-border-subtle);
+  border-radius: var(--radius-lg);
+  margin: 0 var(--space-5);
+  overflow: hidden;
+}
+
+.finding-facts {
+  min-width: 0;
+  padding: var(--space-4);
+  border-radius: 0;
+  background: var(--trace-surface);
+}
+
+.finding-facts + .finding-facts {
+  border-left: 1px solid var(--trace-border-subtle);
+}
+
+.finding-facts:nth-child(1) {
+  border-top: 3px solid var(--trace-success);
+  background: var(--trace-success-soft);
+}
+
+.finding-facts:nth-child(2) {
+  border-top: 3px solid var(--trace-warning);
+  background: var(--trace-warning-soft);
+}
+
+.finding-facts:nth-child(3) {
+  border-top: 3px solid var(--trace-danger);
+  background: var(--trace-danger-soft);
+}
+
+.finding-facts h4 {
+  font-size: .8rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.finding-facts p,
+.finding-facts li {
+  overflow-wrap: anywhere;
+  color: var(--trace-text);
+  line-height: 1.5;
+}
+
+.safe-checks,
+.non-actions,
+.limitations {
+  margin-inline: var(--space-5);
+  padding: var(--space-4);
+  border: 1px solid var(--trace-border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.safe-checks {
+  background: var(--trace-accent-soft);
+  border-color: var(--trace-accent-border);
+}
+
+.safe-checks h4,
+.non-actions h4,
+.limitations h4 {
+  color: var(--trace-text-strong);
+}
+
+.safe-checks li,
+.non-actions li {
+  padding: var(--space-3) 0;
+  margin: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--trace-border-subtle) 72%, transparent);
+}
+
+.safe-checks li:last-child,
+.non-actions li:last-child {
+  border-bottom: 0;
+}
+
+.safe-checks span,
+.non-actions span {
+  color: var(--trace-text-muted);
+  line-height: 1.5;
+}
+
+.safe-checks small {
+  width: fit-content;
+  padding: .2rem .45rem;
+  border-radius: var(--radius-pill);
+  background: var(--trace-surface);
+  color: var(--trace-text-muted);
+  font-weight: 800;
+  text-transform: capitalize;
+}
+
+.non-actions {
+  border-color: var(--trace-danger-border);
+  background: var(--trace-danger-soft);
+}
+
+.limitations {
+  margin-bottom: var(--space-5);
+  border-style: dashed;
+  border-color: var(--trace-warning-border);
+  background: var(--trace-warning-soft);
+}
+
+.findings-workspace details {
+  padding: var(--space-4);
+  border: 1px solid var(--trace-border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--trace-surface-muted);
+}
+
+.findings-workspace details + details {
+  margin-top: calc(var(--space-3) * -1);
+}
+
+.findings-workspace summary {
+  color: var(--trace-text-strong);
+}
+
+.findings-workspace pre {
+  margin-bottom: 0;
+  border: 1px solid var(--trace-neutral-700);
+  font-family: var(--font-mono);
+  font-size: .8rem;
+  line-height: 1.6;
+}
+
+@media (max-width: 900px) {
+  .workflow-card form,
+  .findings-workspace .result-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .workflow-card form > label:not(.check-row):has(+ input),
+  .workflow-card form > label:not(.check-row):has(+ select) {
+    grid-column: 1 / -1;
+  }
+
+  .fact-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .finding-facts + .finding-facts {
+    border-left: 0;
+    border-top-width: 3px;
+  }
+}
+
+@media (max-width: 640px) {
+  .workflow-card,
+  .findings-workspace {
+    padding: var(--space-4);
+  }
+
+  .workflow-card form {
+    padding: var(--space-4);
+  }
+
+  .findings-workspace > .section-heading,
+  .finding-card > header {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .finding-badges {
+    justify-content: start;
+  }
+
+  .fact-columns,
+  .safe-checks,
+  .non-actions,
+  .limitations {
+    margin-inline: var(--space-4);
+  }
+
+  .finding-filters {
+    display: grid;
+  }
+
+  .finding-filters label,
+  .finding-filters span {
+    width: 100%;
+    min-width: 0;
+    margin-left: 0;
+  }
+}
