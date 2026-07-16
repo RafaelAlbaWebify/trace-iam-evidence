@@ -1,5 +1,10 @@
 # TRACE IAM Evidence
 
+> [!NOTE]
+> **This is the current maintained TRACE repository and the canonical source for the project.**
+>
+> It supersedes the earlier [`trace-ops`](https://github.com/RafaelAlbaWebify/trace-ops) prototype, which is retained only as development history.
+
 TRACE IAM Evidence is a local-first, read-only IAM and access-support investigation workbench. It structures redacted evidence, evaluates deterministic versioned rules, records uncertainty and limitations, generates reviewable Markdown and JSON reports, and preserves immutable local investigation history.
 
 ## Stable release scope
@@ -26,6 +31,7 @@ Every workflow uses the same local persistence, immutable analysis history, JSON
 - Reproducible public-safe release proof with SHA-256 manifest.
 - Self-locating Windows runtime management with verified SQLite backup and restore.
 - Portable public-safe review packaging with diagnostics, release evidence and integrity proof.
+- A responsive operational interface covering dashboard, cases, evidence, findings, timeline, run comparison, history, and reports.
 
 ## Safety boundary
 
