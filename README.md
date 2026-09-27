@@ -5,7 +5,7 @@
 >
 > It supersedes the archived [`trace-ops`](https://github.com/RafaelAlbaWebify/trace-ops) prototype, which is retained only as development history.
 
-TRACE is a **local-first, read-only IAM and access-support investigation workbench**. It turns redacted ticket evidence into structured findings, makes uncertainty visible, records what evidence supports or contradicts a conclusion, and preserves an immutable investigation history for review or escalation.
+TRACE is a **local-first, read-only Identity and Modern Workplace support investigation workbench**. It turns redacted ticket evidence into structured findings, makes uncertainty visible, records what evidence supports or contradicts a conclusion, and preserves an immutable investigation history for review or escalation.
 
 ![TRACE operational interface overview](docs/screenshots/trace-ui-overview.svg)
 
@@ -31,7 +31,7 @@ It does not claim a root cause when the available evidence is insufficient.
 
 | Scenario | What TRACE evaluates |
 |---|---|
-| **Conditional Access** | Documented, redacted Entra sign-in CSV evidence and policy-related signals |
+| **Conditional Access / Modern Workplace** | Redacted Entra sign-in evidence, Conditional Access policy signals and Intune managed-device compliance, via deterministic demo or optional read-only Microsoft Graph collection |
 | **Resource assignment** | Whether authentication succeeded but the subject-to-resource assignment is missing or unconfirmed |
 | **Guest / B2B lifecycle** | Invitation, redemption, tenant restriction and resource assignment as separate evidence states |
 
@@ -56,7 +56,8 @@ The CI browser-proof workflow generates and retains the actual full-resolution d
 
 ## What the project demonstrates
 
-- Evidence-led Application Support and IAM troubleshooting.
+- Identity and Modern Workplace support troubleshooting across Entra ID, Conditional Access and Intune.
+- Read-only Microsoft Graph acquisition with explicit OData pagination, filtering, authentication/authorization errors and throttling behavior.
 - Shared source-independent investigation and evidence contracts.
 - Scenario adapters and deterministic versioned rules.
 - Clear separation between fact, inference, contradiction and missing evidence.
@@ -71,7 +72,7 @@ The CI browser-proof workflow generates and retains the actual full-resolution d
 
 - Local-first and read-only.
 - Redacted or public-safe sample evidence only.
-- No credentials, tenant-wide scanning or Microsoft Graph connection.
+- Offline demo requires no credentials. Optional live Microsoft Graph mode uses delegated read-only permissions and operator-scoped filters; it does not perform tenant-wide discovery.
 - No automatic access, identity, invitation, policy, licensing or remediation changes.
 - No recommendation to disable Conditional Access globally or weaken cross-tenant controls.
 - No root-cause claim without sufficient supporting evidence.
@@ -79,7 +80,17 @@ The CI browser-proof workflow generates and retains the actual full-resolution d
 
 Before using TRACE, replace real names, email addresses, tenant IDs, object IDs, tokens and confidential resource names with non-identifying placeholders.
 
-## Quick demonstration
+## Portfolio review path
+
+1. Start TRACE locally.
+2. Select **Load Graph + Intune demo** in the first viewport.
+3. Review the persisted Modern Workplace case: Entra sign-in failure, applied Conditional Access policy and Intune noncompliant device evidence.
+4. Inspect `CA-002`: the signals support a compliance-related investigation but explicitly do not prove causation.
+5. Review safe next checks and the non-action that prohibits disabling Conditional Access or forcing compliance.
+
+The reviewer path is deterministic and does not require a Microsoft tenant. Optional live Graph mode is documented in [Microsoft Graph live mode](docs/microsoft-graph-live-mode.md).
+
+## Full demonstration
 
 1. Start TRACE locally.
 2. Open one of the public-safe default cases or create a new case.
@@ -166,6 +177,7 @@ The project verifies:
 - [Setup and three-scenario demo](docs/setup-and-demo.md)
 - [Local runtime and portable review](docs/local-runtime-and-portable-review.md)
 - [Known limitations](docs/known-limitations.md)
+- [Microsoft Graph live mode](docs/microsoft-graph-live-mode.md)
 - [Release notes](CHANGELOG.md)
 - [v0.3.0 release draft](docs/releases/v0.3.0.md)
 
