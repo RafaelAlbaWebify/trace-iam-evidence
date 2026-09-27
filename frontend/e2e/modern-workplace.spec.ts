@@ -1,0 +1,26 @@
+import { expect, test } from "@playwright/test";
+import { mkdir, writeFile } from "node:fs/promises";
+
+test("reviewer loads Graph Entra Conditional Access and Intune investigation", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByText("Identity · Modern Workplace · Microsoft Graph")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Investigate a Modern Workplace access failure" })).toBeVisible();
+  const demoResponse = page.waitForResponse((response) => response.url().endsWith("/api/modern-workplace/demo") && response.request().method() === "POST");
+  await page.getByRole("button", { name: "Load Graph + Intune demo" }).click();
+  expect((await demoResponse).ok()).toBeTruthy();
+  const active = page.locator(".active-case");
+  await expect(active).toContainText("Managed device blocked by Conditional Access");
+  await expect(active).toContainText("INC-GRAPH-DEMO-001");
+  const findings = page.getByRole("region", { name: /Analysis result/i });
+  await expect(page.getByRole("heading", { name: "Analysis result" })).toBeVisible();
+  await expect(page.getByText("Conditional Access failure correlates with noncompliant device evidence")).toBeVisible();
+  await expect(page.getByText("Correlation does not prove that Intune compliance caused the access failure.")).toBeVisible();
+  await expect(page.getByText("Do not disable Conditional Access or mark the device compliant manually.")).toBeVisible();
+  const evidenceResponse = await page.request.get("/api/investigations/trace-modern-workplace-demo/evidence");
+  expect(evidenceResponse.ok()).toBeTruthy();
+  const evidence = await evidenceResponse.json();
+  expect(evidence.map((item: { source: string }) => item.source).join(" ")).toContain("/auditLogs/signIns");
+  expect(evidence.map((item: { source: string }) => item.source).join(" ")).toContain("/deviceManagement/managedDevices");
+  await mkdir("e2e-artifacts", { recursive: true });
+  await page.screenshot({ path: "e2e-artifacts/modern-workplace-graph.png", fullPage: true });
+});
