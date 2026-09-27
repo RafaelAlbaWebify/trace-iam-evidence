@@ -44,3 +44,16 @@ HTTP 401, 403 and 429 are treated separately. Pagination follows `@odata.nextLin
 ## Interpretation boundary
 
 A failed Conditional Access result plus a noncompliant Intune state is **correlation**, not proof that Intune caused the access failure. TRACE requires review of the matching device identity, applied policy/grant controls and compliance evaluation before remediation. It never disables Conditional Access, changes compliance, wipes/retires devices, grants access or writes to Microsoft Graph.
+
+
+## Support troubleshooting model
+
+| Signal | TRACE interpretation | Operator checks |
+|---|---|---|
+| HTTP 401 | Authentication/token problem | token acquisition, authority/tenant, token validity and requested resource |
+| HTTP 403 | Authorization or service-access problem | delegated consent, Graph permission, signed-in user's Entra role, and Intune licensing where relevant |
+| HTTP 429 | Graph throttling | honor `Retry-After`, reduce request frequency, keep query scope narrow |
+| CA policy details absent from sign-in | Not automatically "no policy" | verify permission/role to read Conditional Access data before drawing a conclusion |
+| Intune managed-device result unavailable | Not automatically "device unmanaged" | verify Intune licence, permission/consent and device correlation |
+
+The diagnostic distinction is intentional: an absent field or denied request is not converted into a negative identity/device fact.
