@@ -32,6 +32,7 @@ class EvidenceKind(StrEnum):
     MANUAL_STRUCTURED = "manual_structured"
     ENTRA_SIGNIN_CSV = "entra_signin_csv"
     GENERIC_TEXT_EXCERPT = "generic_text_excerpt"
+    MICROSOFT_GRAPH = "microsoft_graph"
 
 
 class EvidenceReliability(StrEnum):
