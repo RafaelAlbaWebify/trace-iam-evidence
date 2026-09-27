@@ -141,8 +141,20 @@ def collect_live_graph_evidence(
             sign_ins = graph.list_sign_ins(filter_expression=request.sign_in_filter).values
             policies = graph.list_conditional_access_policies().values
             devices = graph.list_managed_devices(filter_expression=request.managed_device_filter).values
-    except (GraphError, RuntimeError) as exc:
-        raise HTTPException(status_code=502, detail=f"Microsoft Graph collection failed: {exc}") from exc
+    except GraphError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "category": exc.category,
+                "graph_status": exc.status_code,
+                "message": str(exc),
+            },
+        ) from exc
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail={"category": "identity_authentication", "message": str(exc)},
+        ) from exc
     normalized = normalize_graph_snapshot(sign_ins=sign_ins, policies=policies, managed_devices=devices)
     live_case = replace(investigation, evidence_items=normalized.evidence_items)
     outcome = analyze(
