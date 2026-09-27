@@ -20,3 +20,30 @@ def test_modern_workplace_demo_exposes_graph_entra_intune_correlation() -> None:
     assert any("noncompliant device evidence" in title for title in titles)
     correlation = next(f for f in report["findings"] if f["rule_id"] == "CA-002")
     assert any("does not prove" in item for item in correlation["limitations"])
+
+
+def test_graph_status_is_safe_when_live_connection_is_not_configured(monkeypatch) -> None:
+    monkeypatch.delenv("TRACE_GRAPH_CLIENT_ID", raising=False)
+    monkeypatch.delenv("TRACE_GRAPH_TENANT_ID", raising=False)
+    with TestClient(app) as client:
+        response = client.get("/api/modern-workplace/graph/status")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["configured"] is False
+    assert payload["mode"] == "delegated-read-only"
+    assert "DeviceManagementManagedDevices.Read.All" in payload["scopes"]
+
+
+def test_live_graph_collection_refuses_unconfigured_runtime() -> None:
+    with TestClient(app) as client:
+        demo = client.post("/api/modern-workplace/demo").json()
+        response = client.post(
+            "/api/modern-workplace/graph/collect",
+            json={
+                "investigation_id": demo["investigation_id"],
+                "sign_in_filter": "userId eq 'redacted'",
+                "managed_device_filter": "userId eq 'redacted'",
+            },
+        )
+    assert response.status_code == 503
+    assert "TRACE_GRAPH_CLIENT_ID" in response.json()["detail"]
