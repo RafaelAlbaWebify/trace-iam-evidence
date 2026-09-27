@@ -1,7 +1,7 @@
 from dataclasses import asdict, replace
 import os
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from trace_iam.application import analyze
@@ -128,15 +128,12 @@ def collect_live_graph_evidence(
 ) -> DemoResponse:
     investigation = repository.get_investigation(request.investigation_id)
     if investigation is None:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Investigation not found")
     if investigation.scenario_type is not ScenarioType.CONDITIONAL_ACCESS:
-        from fastapi import HTTPException
         raise HTTPException(status_code=409, detail="Live Graph collection currently requires a Conditional Access investigation")
     client_id = os.getenv("TRACE_GRAPH_CLIENT_ID", "").strip()
     tenant_id = os.getenv("TRACE_GRAPH_TENANT_ID", "").strip()
     if not client_id or not tenant_id:
-        from fastapi import HTTPException
         raise HTTPException(status_code=503, detail="Live Graph is not configured. Set TRACE_GRAPH_CLIENT_ID and TRACE_GRAPH_TENANT_ID for a registered public client.")
     try:
         provider = DelegatedGraphTokenProvider(GraphAuthConfig(client_id, tenant_id))
@@ -145,7 +142,6 @@ def collect_live_graph_evidence(
             policies = graph.list_conditional_access_policies().values
             devices = graph.list_managed_devices(filter_expression=request.managed_device_filter).values
     except (GraphError, RuntimeError) as exc:
-        from fastapi import HTTPException
         raise HTTPException(status_code=502, detail=f"Microsoft Graph collection failed: {exc}") from exc
     normalized = normalize_graph_snapshot(sign_ins=sign_ins, policies=policies, managed_devices=devices)
     live_case = replace(investigation, evidence_items=normalized.evidence_items)
