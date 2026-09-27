@@ -39,9 +39,19 @@ TRACE accepts redacted or public-safe evidence only. Before replacing the suppli
 - tokens, secrets, credentials, and session data;
 - confidential application, customer, or resource names.
 
-TRACE is local-first and read-only. It does not connect to Microsoft Graph, inspect a live tenant, grant access, change policies, or remediate findings.
+TRACE is local-first and read-only. The default demo uses public-safe synthetic Graph-shaped evidence. Optional live Microsoft Graph acquisition is explicitly configured and read-only; TRACE never grants access, changes policies/compliance, or remediates findings.
 
 ## Browser demo
+
+### 0. Recruiter path — Microsoft Graph + Intune
+
+1. Select **Load Graph + Intune demo** in the first viewport.
+2. Confirm that the active case is **Managed device blocked by Conditional Access**.
+3. Review Graph provenance for Entra sign-ins, Conditional Access policy context and Intune managed-device evidence.
+4. Confirm that `CA-002` states correlation with noncompliant-device evidence and explicitly says this does not prove causation.
+5. Review the safe device/policy checks and the explicit non-action.
+
+This path requires no tenant or credentials. See [Microsoft Graph live mode](microsoft-graph-live-mode.md) for the optional delegated read-only connection.
 
 ### 1. Conditional Access
 
