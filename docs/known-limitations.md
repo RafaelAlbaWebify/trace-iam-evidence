@@ -2,7 +2,9 @@
 
 TRACE IAM Evidence is a portfolio-grade local investigation workbench, not a production identity-management platform.
 
-- It does not connect to Microsoft Graph, Entra ID, applications, or external tenants.
+- The default reviewer path is offline and synthetic. Optional live mode connects only to documented Microsoft Graph read endpoints after explicit local app-registration configuration and interactive delegated authentication.
+- Live mode is not a tenant administration console: it does not discover an entire tenant, write to Graph, or remediate Entra/Intune state.
+- Intune managed-device queries depend on tenant licensing, consent and operator permissions; missing access is not treated as evidence that a device is absent.
 - It accepts only redacted or public-safe structured evidence and the documented sample CSV shape.
 - It does not prove root cause; findings are deterministic interpretations of supplied evidence with explicit limitations.
 - It does not create users, guests, invitations, assignments, policies, licences, or access changes.
@@ -10,6 +12,6 @@ TRACE IAM Evidence is a portfolio-grade local investigation workbench, not a pro
 - It does not ingest arbitrary Microsoft export formats or silently infer unknown columns.
 - SQLite is intended for local single-operator use; concurrent multi-user access is outside the release scope.
 - Evidence retention is limited to `full_redacted` and `metadata_only`; automatic expiry and secure deletion are not implemented.
-- Authentication, authorization, encryption-at-rest management, installer packaging, and hosted deployment are outside this release.
+- TRACE implements Microsoft identity delegated authentication for optional Graph acquisition; application-level authorization, encryption-at-rest management, installer packaging, and hosted deployment remain outside this release.
 - Browser proof currently uses Chromium in GitHub Actions; other browser engines are not release gates.
 - The Windows release-candidate gate is automated in GitHub Actions. A separate signed desktop installer or physical-device certification is not claimed.
