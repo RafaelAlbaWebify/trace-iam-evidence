@@ -4,6 +4,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 test("operator manages evidence, findings, chronology, comparison, and operational search", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "TRACE IAM Evidence" })).toBeVisible();
+  await page.locator("#case-workspace").getByText("Create a persisted operational case", { exact: true }).click();
   await page.locator("#case-name").fill("Conditional Access sign-in review");
   await page.locator("#case-scenario").selectOption("conditional_access");
   await page.locator("#case-priority").selectOption("high");
