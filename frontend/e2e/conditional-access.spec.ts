@@ -70,6 +70,7 @@ test("operator manages evidence, findings, chronology, comparison, and operation
 
   const historyRow = page.getByRole("button", { name: "Conditional Access sign-in review" }).locator("..");
   await expect(historyRow).toContainText("analyzed · 2 run(s)");
+  await page.locator(".metadata-disclosure > summary").click();
   await page.getByRole("button", { name: "Mark reviewed" }).click();
   await expect(historyRow).toContainText("reviewed · 2 run(s)");
   await historyRow.getByRole("button", { name: "Archive" }).click();
