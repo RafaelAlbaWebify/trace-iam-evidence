@@ -13,8 +13,9 @@ test("reviewer loads Graph Entra Conditional Access and Intune investigation", a
   await expect(active).toContainText("INC-GRAPH-DEMO-001");
   const findings = page.locator("#analysis-result");
   await expect(findings.getByRole("heading", { name: "Analysis result" })).toBeVisible();
-  const correlation = findings.locator(".finding-card").filter({ has: findings.getByRole("heading", { name: "Conditional Access failure correlates with noncompliant device evidence" }) });
-  await expect(correlation.getByRole("heading", { name: "Conditional Access failure correlates with noncompliant device evidence" })).toBeVisible();
+  const correlationHeading = findings.getByRole("heading", { name: "Conditional Access failure correlates with noncompliant device evidence" });
+  await expect(correlationHeading).toBeVisible();
+  const correlation = correlationHeading.locator("..");
   await expect(correlation.getByText("Correlation does not prove that Intune compliance caused the access failure.", { exact: true })).toBeVisible();
   await expect(correlation.getByText("Do not disable Conditional Access or mark the device compliant manually.", { exact: true })).toBeVisible();
   const evidenceResponse = await page.request.get("/api/investigations/trace-modern-workplace-demo/evidence");
