@@ -4,6 +4,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 test("operator manages evidence, findings, chronology, comparison, and operational search", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "TRACE IAM Evidence" })).toBeVisible();
+  await page.locator("#case-workspace").getByText("Create a persisted operational case", { exact: true }).click();
   await page.locator("#case-name").fill("Conditional Access sign-in review");
   await page.locator("#case-scenario").selectOption("conditional_access");
   await page.locator("#case-priority").selectOption("high");
@@ -53,6 +54,7 @@ test("operator manages evidence, findings, chronology, comparison, and operation
   await expect(page.getByRole("heading", { name: "Analysis result" })).toBeVisible();
   await expect(timelineWorkspace.getByText("Analysis run 1 completed.")).toBeVisible();
 
+  await page.locator(".scenario-tools > summary").click();
   const secondAnalysis = page.waitForResponse((response) => response.url().includes("analyze-conditional-access-csv"));
   await page.getByRole("button", { name: "Analyze evidence" }).click();
   expect((await secondAnalysis).ok()).toBeTruthy();
@@ -68,6 +70,7 @@ test("operator manages evidence, findings, chronology, comparison, and operation
 
   const historyRow = page.getByRole("button", { name: "Conditional Access sign-in review" }).locator("..");
   await expect(historyRow).toContainText("analyzed · 2 run(s)");
+  await page.locator(".metadata-disclosure > summary").click();
   await page.getByRole("button", { name: "Mark reviewed" }).click();
   await expect(historyRow).toContainText("reviewed · 2 run(s)");
   await historyRow.getByRole("button", { name: "Archive" }).click();

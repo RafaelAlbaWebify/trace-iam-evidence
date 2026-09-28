@@ -43,7 +43,8 @@ test("requires a persisted investigation before scenario analysis", async () => 
   expect(screen.getByRole("heading", { name: "TRACE IAM Evidence" })).toBeInTheDocument();
   expect(await screen.findByText("No persisted investigations yet.")).toBeInTheDocument();
   expect(screen.getByText("Create or open an investigation to manage its evidence inventory.")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Select a Conditional Access case" })).toBeDisabled();
+  expect(screen.queryByText("Scenario evidence input")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Analyze evidence" })).not.toBeInTheDocument();
 });
 
 test("creates and activates a server-generated investigation with operational metadata", async () => {

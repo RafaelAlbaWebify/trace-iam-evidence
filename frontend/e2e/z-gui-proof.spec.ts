@@ -39,12 +39,13 @@ test("captures focused desktop GUI proof and browser diagnostics", async ({ page
     return [...counts.entries()].filter(([, count]) => count > 1);
   });
 
-  const unnamedButtons = await page.evaluate(() =>
+  const unnamedButtonElements = await page.evaluate(() =>
     [...document.querySelectorAll<HTMLButtonElement>("button")]
       .filter((button) => !button.disabled)
-      .filter((button) => !(button.innerText || button.getAttribute("aria-label") || button.getAttribute("title")))
-      .length,
+      .filter((button) => !((button.textContent ?? "").trim() || button.getAttribute("aria-label") || button.getAttribute("title")))
+      .map((button) => button.outerHTML),
   );
+  const unnamedButtons = unnamedButtonElements.length;
 
   const landmarkSummary = await page.evaluate(() => ({
     main: document.querySelectorAll("main").length,
@@ -54,7 +55,7 @@ test("captures focused desktop GUI proof and browser diagnostics", async ({ page
 
   await writeFile(
     path.join(artifactDirectory, "gui-browser-diagnostics.json"),
-    JSON.stringify({ consoleErrors, pageErrors, duplicateIds, unnamedButtons, landmarkSummary }, null, 2),
+    JSON.stringify({ consoleErrors, pageErrors, duplicateIds, unnamedButtons, unnamedButtonElements, landmarkSummary }, null, 2),
     "utf8",
   );
 
