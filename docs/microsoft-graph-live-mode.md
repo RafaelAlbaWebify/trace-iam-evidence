@@ -1,6 +1,6 @@
 # Microsoft Graph live mode
 
-TRACE includes a deterministic offline Modern Workplace demo and an optional live, read-only Microsoft Graph acquisition path.
+TRACE is fully operable and reviewable without a Microsoft tenant. Its deterministic offline Modern Workplace workflow is the primary release and portfolio path. This document covers an optional read-only Microsoft Graph connector implemented to demonstrate the acquisition boundary; it is not required to run, test, review or present TRACE.
 
 ## App registration
 
