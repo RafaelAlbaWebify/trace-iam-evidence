@@ -47,3 +47,21 @@ def test_live_graph_collection_refuses_unconfigured_runtime() -> None:
         )
     assert response.status_code == 503
     assert "TRACE_GRAPH_CLIENT_ID" in response.json()["detail"]
+
+
+def test_modern_workplace_demo_can_be_reloaded_without_external_state() -> None:
+    with TestClient(app) as client:
+        first = client.post("/api/modern-workplace/demo")
+        second = client.post("/api/modern-workplace/demo")
+        evidence = client.get("/api/investigations/trace-modern-workplace-demo/evidence")
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert second.json()["investigation_id"] == first.json()["investigation_id"]
+    assert second.json()["run_number"] > first.json()["run_number"]
+    assert evidence.status_code == 200
+    sources = {item["source"] for item in evidence.json()}
+    assert sources == {
+        "Microsoft Graph /auditLogs/signIns",
+        "Microsoft Graph /identity/conditionalAccess/policies",
+        "Microsoft Graph /deviceManagement/managedDevices",
+    }
