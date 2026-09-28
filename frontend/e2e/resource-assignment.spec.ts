@@ -3,6 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 
 test("operator creates and analyzes a persisted resource-assignment case", async ({ page }) => {
   await page.goto("/");
+  await page.locator("#case-workspace").getByText("Create a persisted operational case", { exact: true }).click();
   await expect(page.getByRole("button", { name: "Create investigation" })).toBeEnabled();
 
   await page.getByLabel("Case title").fill("Resource assignment review");
