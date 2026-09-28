@@ -88,7 +88,7 @@ Before using TRACE, replace real names, email addresses, tenant IDs, object IDs,
 4. Inspect `CA-002`: the signals support a compliance-related investigation but explicitly do not prove causation.
 5. Review safe next checks and the non-action that prohibits disabling Conditional Access or forcing compliance.
 
-The reviewer path is deterministic and does not require a Microsoft tenant. Optional live Graph mode is documented in [Microsoft Graph live mode](docs/microsoft-graph-live-mode.md).
+The reviewer path is the complete portfolio experience: it is deterministic, works without a Microsoft tenant, trial or Intune subscription, and is the release/Featured acceptance path. The optional live connector is an additional implementation example only; TRACE operability never depends on it. It is documented in [Microsoft Graph live mode](docs/microsoft-graph-live-mode.md).
 
 ## Full demonstration
 
