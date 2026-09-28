@@ -11,11 +11,12 @@ test("reviewer loads Graph Entra Conditional Access and Intune investigation", a
   const active = page.locator(".active-case");
   await expect(active).toContainText("Managed device blocked by Conditional Access");
   await expect(active).toContainText("INC-GRAPH-DEMO-001");
-  const findings = page.getByRole("region", { name: /Analysis result/i });
-  await expect(page.getByRole("heading", { name: "Analysis result" })).toBeVisible();
-  await expect(page.getByText("Conditional Access failure correlates with noncompliant device evidence")).toBeVisible();
-  await expect(page.getByText("Correlation does not prove that Intune compliance caused the access failure.")).toBeVisible();
-  await expect(page.getByText("Do not disable Conditional Access or mark the device compliant manually.")).toBeVisible();
+  const findings = page.locator("#analysis-result");
+  await expect(findings.getByRole("heading", { name: "Analysis result" })).toBeVisible();
+  const correlation = findings.locator(".finding-card").filter({ has: findings.getByRole("heading", { name: "Conditional Access failure correlates with noncompliant device evidence" }) });
+  await expect(correlation.getByRole("heading", { name: "Conditional Access failure correlates with noncompliant device evidence" })).toBeVisible();
+  await expect(correlation.getByText("Correlation does not prove that Intune compliance caused the access failure.", { exact: true })).toBeVisible();
+  await expect(correlation.getByText("Do not disable Conditional Access or mark the device compliant manually.", { exact: true })).toBeVisible();
   const evidenceResponse = await page.request.get("/api/investigations/trace-modern-workplace-demo/evidence");
   expect(evidenceResponse.ok()).toBeTruthy();
   const evidence = await evidenceResponse.json();
