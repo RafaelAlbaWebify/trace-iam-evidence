@@ -42,7 +42,7 @@ test("captures focused desktop GUI proof and browser diagnostics", async ({ page
   const unnamedButtonElements = await page.evaluate(() =>
     [...document.querySelectorAll<HTMLButtonElement>("button")]
       .filter((button) => !button.disabled)
-      .filter((button) => !(button.innerText || button.getAttribute("aria-label") || button.getAttribute("title")))
+      .filter((button) => !((button.textContent ?? "").trim() || button.getAttribute("aria-label") || button.getAttribute("title")))
       .map((button) => button.outerHTML),
   );
   const unnamedButtons = unnamedButtonElements.length;
