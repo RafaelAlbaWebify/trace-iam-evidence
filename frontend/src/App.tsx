@@ -15,6 +15,7 @@ type AnalysisResponse = { investigation_id: string; run_number: number; finding_
 type InvestigationSummary = { investigation_id: string; title: string; scenario_type: ScenarioType; status: InvestigationStatus; priority: CasePriority; external_reference: string | null; summary: string | null; created_at: string; archived_at: string | null; analysis_run_count: number };
 type InvestigationDetail = { investigation_id: string; title: string; scenario_type: ScenarioType; status: InvestigationStatus; priority: CasePriority; external_reference: string | null; summary: string | null; created_at: string; evidence_item_count: number; analysis_run_count: number };
 type AnalysisRun = { run_number: number; created_at: string; ruleset_version: string; finding_count: number };
+type ModernWorkplaceDemo = AnalysisResponse & { evidence_sources: string[] };
 type ApiErrorItem = { loc?: Array<string | number>; msg?: string };
 
 function errorMessage(payload: unknown, fallback: string): string {
@@ -96,6 +97,17 @@ export function App() {
 
   useEffect(() => { refreshHistory().catch((caught) => setError(caught instanceof Error ? caught.message : "History failed to load")).finally(() => setHistoryLoading(false)); }, []);
 
+  async function loadModernWorkplaceDemo() {
+    setLoading(true); setError(""); setNotice(""); setResult(null);
+    try {
+      const demo = await api<ModernWorkplaceDemo>("/api/modern-workplace/demo", { method: "POST" });
+      await completeAnalysis(demo);
+      setNotice("Modern Workplace demo loaded: Microsoft Graph → Entra sign-in → Conditional Access → Intune compliance.");
+      document.getElementById("analysis-result")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Modern Workplace demo failed"); }
+    finally { setLoading(false); }
+  }
+
   async function createCase(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setLoading(true); setError(""); setNotice(""); setResult(null);
     try {
@@ -169,8 +181,9 @@ export function App() {
   const lifecycleAction = activeCase ? nextLifecycleAction(activeCase.status) : null;
 
   return <main className="app-shell" aria-busy={unavailable}>
-    <header className="hero"><p className="eyebrow">Local-first IAM investigation workbench</p><h1>TRACE IAM Evidence</h1><p>Create operational cases, preserve redacted evidence provenance, execute deterministic rules, and retain immutable history.</p></header>
-    <nav className="scenario-nav" aria-label="Evidence scenarios"><a href="#operations-dashboard">Dashboard<span>Search and workload</span></a><a href="#case-workspace">New case<span>Identity and triage</span></a><a href="#active-case-control">Active case<span>Metadata and lifecycle</span></a><a href="#evidence-workspace">Evidence<span>Inventory and validation</span></a><a href="#conditional_access">Conditional Access<span>CSV sign-in evidence</span></a><a href="#resource_assignment">Resource assignment<span>Entitlement evidence</span></a><a href="#guest_b2b">Guest / B2B<span>Lifecycle evidence</span></a><a href="#analysis-result">Findings<span>Structured evidence outcome</span></a><a href="#history">History<span>Cases, runs and exports</span></a></nav>
+    <header className="hero"><p className="eyebrow">Identity · Modern Workplace · Microsoft Graph</p><h1>TRACE IAM Evidence</h1><p>Read-only investigation workbench for Entra sign-ins, Conditional Access, Intune device compliance and evidence-backed access troubleshooting.</p></header>
+    <section className="graph-command" aria-labelledby="graph-command-title"><div><span>Recruiter review path</span><h2 id="graph-command-title">Investigate a Modern Workplace access failure</h2><p>Correlate a redacted Microsoft Graph sign-in, applied Conditional Access policy and Intune managed-device compliance state. The demo is deterministic and requires no tenant or credentials.</p></div><div className="graph-command-actions"><div className="graph-source-chips"><b>Microsoft Graph</b><b>Entra ID</b><b>Conditional Access</b><b>Intune</b></div><button type="button" onClick={loadModernWorkplaceDemo} disabled={unavailable}>{loading ? "Loading…" : "Load Graph + Intune demo"}</button><small>Offline reviewer mode · read-only model · no secrets</small></div></section>
+    <nav className="scenario-nav" aria-label="Evidence scenarios"><a href="#operations-dashboard">Dashboard<span>Search and workload</span></a><a href="#analysis-result">Graph + Intune<span>Modern Workplace demo</span></a><a href="#case-workspace">New case<span>Identity and triage</span></a><a href="#active-case-control">Active case<span>Metadata and lifecycle</span></a><a href="#evidence-workspace">Evidence<span>Inventory and validation</span></a><a href="#conditional_access">Conditional Access<span>CSV sign-in evidence</span></a><a href="#resource_assignment">Resource assignment<span>Entitlement evidence</span></a><a href="#guest_b2b">Guest / B2B<span>Lifecycle evidence</span></a><a href="#analysis-result">Findings<span>Structured evidence outcome</span></a><a href="#history">History<span>Cases, runs and exports</span></a></nav>
     <aside className="privacy-note" aria-label="Evidence safety guidance"><strong>Use redacted evidence and metadata only.</strong> Replace real names, email addresses, tenant IDs, object IDs, tokens, confidential resource names, and sensitive ticket content before entry.</aside>
     {error && <p className="alert" role="alert"><strong>TRACE could not complete the request.</strong><span>{error}</span></p>}{notice && <p className="status" role="status">{notice}</p>}
 
