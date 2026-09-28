@@ -494,3 +494,60 @@ a { color: var(--trace-blue-700); }
 .graph-source-chips { display: flex; flex-wrap: wrap; gap: .4rem; }
 .graph-source-chips b { padding: .3rem .5rem; border: 1px solid #bfd7f1; border-radius: 999px; background: #fff; color: #174f8e; font-size: .68rem; }
 @media (max-width: 860px) { .graph-command { grid-template-columns: 1fr; } }
+
+/* Progressive disclosure keeps the active investigation in view without removing capability. */
+.disclosure-panel {
+  margin-top: var(--trace-space-4);
+  padding: 0;
+  overflow: hidden;
+}
+.disclosure-panel > summary,
+.metadata-disclosure > summary {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  cursor: pointer;
+  list-style: none;
+  color: var(--trace-slate-800);
+  font-size: .82rem;
+}
+.disclosure-panel > summary { padding: .9rem 1rem; }
+.disclosure-panel > summary::-webkit-details-marker,
+.metadata-disclosure > summary::-webkit-details-marker { display: none; }
+.disclosure-panel > summary::after,
+.metadata-disclosure > summary::after {
+  content: "+";
+  margin-left: auto;
+  color: var(--trace-blue-700);
+  font-size: 1.05rem;
+  font-weight: 850;
+}
+.disclosure-panel[open] > summary::after,
+.metadata-disclosure[open] > summary::after { content: "−"; }
+.disclosure-panel > summary span {
+  color: var(--trace-blue-700);
+  font-size: .7rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.disclosure-panel > summary strong { font-size: .9rem; }
+.disclosure-panel > form { padding: 0 var(--trace-space-5) var(--trace-space-5); }
+.metadata-disclosure {
+  margin-top: .65rem;
+  padding-top: 0;
+  border-top: 0;
+}
+.metadata-disclosure > summary {
+  width: fit-content;
+  padding: .45rem .1rem;
+  color: var(--trace-blue-700);
+  font-weight: 750;
+}
+.metadata-disclosure .metadata-form { margin-top: .4rem; }
+.scenario-tools > .embedded-workflow {
+  margin: 0;
+  padding: 0 var(--trace-space-5) var(--trace-space-5);
+  border: 0;
+  box-shadow: none;
+}
