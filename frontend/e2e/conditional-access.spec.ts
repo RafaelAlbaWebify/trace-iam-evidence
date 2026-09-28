@@ -54,6 +54,7 @@ test("operator manages evidence, findings, chronology, comparison, and operation
   await expect(page.getByRole("heading", { name: "Analysis result" })).toBeVisible();
   await expect(timelineWorkspace.getByText("Analysis run 1 completed.")).toBeVisible();
 
+  await page.locator(".scenario-tools").getByText("Conditional Access", { exact: true }).click();
   const secondAnalysis = page.waitForResponse((response) => response.url().includes("analyze-conditional-access-csv"));
   await page.getByRole("button", { name: "Analyze evidence" }).click();
   expect((await secondAnalysis).ok()).toBeTruthy();
