@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Protocol, cast
 
-import msal
+import msal  # type: ignore[import-untyped]
 
 GRAPH_DELEGATED_SCOPES = (
     "AuditLog.Read.All",
