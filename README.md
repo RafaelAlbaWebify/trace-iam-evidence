@@ -27,6 +27,14 @@ create case
 
 It does not claim a root cause when the available evidence is insufficient.
 
+## Operational origin
+
+The earliest operational precursor to TRACE was created while supporting an industrial production environment. The original need was practical: improve traceability during endpoint migrations for devices that were not yet managed through Intune, while also keeping a clear record of work completed by different technicians across the plant.
+
+The public TRACE repository is **not a copy of that internal tool**. It has been sanitized, rebuilt and substantially evolved into an Identity and Modern Workplace investigation workbench covering Entra ID, Conditional Access, Intune, resource assignment and Guest/B2B scenarios. It contains no employer, customer or production data.
+
+That origin still influences the design: explicit provenance, immutable history, clear operator notes, evidence before action and outputs that are useful for handover or escalation.
+
 ## Supported investigation scenarios
 
 | Scenario | What TRACE evaluates |
