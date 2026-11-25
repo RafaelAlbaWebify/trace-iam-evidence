@@ -3,7 +3,6 @@
 > [!NOTE]
 > **This is the current maintained TRACE repository and the canonical source for the project.**
 >
-> It supersedes the archived [`trace-ops`](https://github.com/RafaelAlbaWebify/trace-ops) prototype, which is retained only as development history.
 
 TRACE is a **local-first, read-only Identity and Modern Workplace support investigation workbench**. It turns redacted ticket evidence into structured findings, makes uncertainty visible, records what evidence supports or contradicts a conclusion, and preserves an immutable investigation history for review or escalation.
 
