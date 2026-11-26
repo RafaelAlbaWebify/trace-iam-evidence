@@ -168,7 +168,7 @@ jobs:
           if-no-files-found: warn
 
   browser-proof:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [backend, frontend, release-publisher-proof, runtime-lifecycle-proof, portable-review-proof]
     steps:
       - uses: actions/checkout@v4
